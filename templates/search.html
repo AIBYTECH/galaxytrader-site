@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Search parts | {{ cfg.SITE_NAME }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="wrap section">
+  <h1 data-search-title>Search parts</h1>
+  <form class="search-big" action="{{ url('/search/') }}" role="search">
+    <label for="q2" class="sr-only">Search parts</label>
+    <input id="q2" name="q" type="search" placeholder="Part number, part name or machine model" data-search-page-input>
+    <button class="btn btn-accent" type="submit">Search</button>
+  </form>
+  <p class="filter-count" data-search-count aria-live="polite"></p>
+  <div class="grid" data-search-grid></div>
+  <div class="notice" data-search-empty hidden>
+    No parts found. Try the part number without dashes, or your machine model (e.g. DDL-8700).
+    Or <a href="https://wa.me/{{ cfg.WHATSAPP_NUMBER }}" rel="noopener">send us a photo on WhatsApp</a>.
+  </div>
+</div>
+{% endblock %}

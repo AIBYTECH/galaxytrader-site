@@ -1,0 +1,20 @@
+# Secrets
+.env
+
+# Generated output (rebuilt every time)
+dist/
+build/
+
+# Original photos live in R2 (private bucket), not in Git
+photos/
+
+# Python / editors / OS
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*.xlsx

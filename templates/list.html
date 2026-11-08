@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Your reorder list | {{ cfg.SITE_NAME }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="wrap section">
+  <h1>Your reorder list</h1>
+  <p class="lead-dark">Your list is saved on this phone or computer. Send it whenever you're ready, and it stays here for next time.</p>
+
+  <div data-list-empty hidden class="notice">
+    Your list is empty. Search for a part or <a href="{{ url('/machines/') }}">browse by machine</a>, then tap <strong>+ Reorder list</strong>.
+  </div>
+
+  <div class="list-table-wrap" data-list-wrap hidden>
+    <table class="list-table">
+      <thead><tr><th scope="col">Part</th><th scope="col">Quantity</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead>
+      <tbody data-list-body></tbody>
+    </table>
+    <label for="list-note" class="label">Note for us (optional)</label>
+    <textarea id="list-note" rows="2" placeholder="e.g. Company name, delivery city" data-list-note></textarea>
+    <div class="action-row">
+      <a class="btn btn-accent btn-big" href="#" rel="noopener" data-list-wa>Send list on WhatsApp</a>
+      <a class="btn btn-dark btn-big" href="#" data-list-email>Send by email</a>
+    </div>
+    <button type="button" class="btn btn-small btn-ghost-dark" data-list-clear>Clear list</button>
+  </div>
+</div>
+{% endblock %}

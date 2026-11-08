@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card with context %}
+{% block title %}{{ cfg.SITE_NAME }} – {{ cfg.TAGLINE }}{% endblock %}
+{% block head %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":{{ cfg.SITE_NAME|tojson }},"url":{{ cfg.BASE_URL|tojson }},
+ "email":{{ cfg.EMAIL|tojson }},"address":{{ cfg.ADDRESS|tojson }},"logo":{{ (cfg.BASE_URL ~ '/img/favicon.svg')|tojson }}}
+</script>
+{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-text">
+      <p class="eyebrow">Parts catalogue · Karachi · All Pakistan</p>
+      <h1>Find and reorder your sewing machine parts</h1>
+      <p class="lead">{{ n_products }} parts for {{ n_brands }} machine brands. Search by part number or machine, add parts to your reorder list, and send it to us on WhatsApp in one tap.</p>
+      <div class="hero-actions">
+        <a class="btn btn-accent btn-big" href="{{ url('/list/') }}">Open my reorder list</a>
+        <a class="btn btn-ghost btn-big" href="https://wa.me/{{ cfg.WHATSAPP_NUMBER }}" rel="noopener" data-wa-click="hero">Send a part photo on WhatsApp</a>
+      </div>
+    </div>
+    <form class="picker" data-machine-picker action="{{ url('/machines/') }}">
+      <h2>Find parts for your machine</h2>
+      <p>Pick your machine to see every part that fits it.</p>
+      <label for="pick-brand">Machine brand</label>
+      <select id="pick-brand" data-pick-brand>
+        <option value="">Choose a brand</option>
+        {% for b in machine_data %}<option>{{ b }}</option>{% endfor %}
+      </select>
+      <label for="pick-model">Model</label>
+      <select id="pick-model" data-pick-model disabled>
+        <option value="">Choose a brand first</option>
+      </select>
+      <button class="btn btn-dark btn-big" type="submit" data-pick-go disabled>Show parts</button>
+      <script type="application/json" id="machine-data">{{ machine_data|tojson }}</script>
+    </form>
+  </div>
+</section>
+
+<section class="wrap section" data-recent hidden>
+  <h2 class="section-title">Recently viewed</h2>
+  <div class="recent-row" data-recent-list></div>
+</section>
+
+<section class="wrap section">
+  <div class="section-head">
+    <h2 class="section-title">Shop by category</h2>
+  </div>
+  <div class="cat-grid">
+    {% for c in top_cats %}
+    <a class="cat-tile" href="{{ url(c.url) }}">
+      <span class="cat-name">{{ c.name }}</span>
+      <span class="cat-count">{{ c.products|length }} parts</span>
+      {% if c.children %}<span class="cat-sub">{{ c.children|map(attribute='name')|join(' · ') }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap section">
+    <h2 class="section-title">How to reorder</h2>
+    <ol class="steps">
+      <li><span>01</span><strong>Find the part</strong>Search the part number or your machine model, or scan the QR code on your last parcel.</li>
+      <li><span>02</span><strong>Add to your list</strong>Set the quantity. Your list stays saved on this phone for next time.</li>
+      <li><span>03</span><strong>Send on WhatsApp</strong>One tap sends every part number and quantity to us.</li>
+      <li><span>04</span><strong>We confirm</strong>We reply with availability, rates and delivery time.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="wrap section contact-strip">
+  <div>
+    <h2 class="section-title">Can't find a part?</h2>
+    <p>Send us a photo of the old part and your machine model. We'll find it for you.</p>
+  </div>
+  <a class="btn btn-accent btn-big" href="https://wa.me/{{ cfg.WHATSAPP_NUMBER }}" rel="noopener" data-wa-click="home-help">Message us on WhatsApp</a>
+</section>
+{% endblock %}

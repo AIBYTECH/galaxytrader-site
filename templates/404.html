@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Page not found | {{ cfg.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="wrap section prose">
+  <h1>Page not found</h1>
+  <p>This part or page doesn't exist, or its link has changed. Try searching for the part number above, or:</p>
+  <p><a class="btn btn-accent" href="{{ url('/') }}">Go to the homepage</a></p>
+</div>
+{% endblock %}
