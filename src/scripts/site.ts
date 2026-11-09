@@ -19,6 +19,7 @@ function initReveal(): void {
   const items = document.querySelectorAll<HTMLElement>("[data-reveal]");
   if (reduceMotion || !items.length || !("IntersectionObserver" in window)) return;
 
+  let first = true;
   const observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -27,17 +28,18 @@ function initReveal(): void {
           observer.unobserve(entry.target); // once only
         }
       }
+      // The observer's first report says what is already on screen. Only now
+      // do we switch on the hidden state for the rest, so nothing on screen
+      // ever flashes. (Measuring with getBoundingClientRect() here instead
+      // would force an expensive layout while the page is still loading.)
+      if (first) {
+        first = false;
+        document.documentElement.classList.add("js-reveal");
+      }
     },
     { rootMargin: "0px 0px -40px 0px" },
   );
-
-  // Things already on screen stay visible (no flash); only the rest wait.
-  const fold = window.innerHeight;
-  items.forEach((el) => {
-    if (el.getBoundingClientRect().top < fold) el.classList.add("is-in");
-    else observer.observe(el);
-  });
-  document.documentElement.classList.add("js-reveal");
+  items.forEach((el) => observer.observe(el));
 }
 
 // ---------------------------------------------------------------------------
