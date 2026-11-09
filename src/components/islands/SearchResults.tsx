@@ -45,7 +45,7 @@ function SearchResults({ whatsapp }: { whatsapp: string }) {
           Search
         </button>
       </form>
-      <p className="mb-3 text-sm text-ink-2" aria-live="polite">
+      <p className="mb-3 min-h-5 text-sm text-ink-2" aria-live="polite">
         {error
           ? "Search couldn't load. Please refresh the page."
           : query && !hits

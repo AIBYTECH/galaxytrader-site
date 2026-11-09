@@ -7,7 +7,8 @@
  * and with reduced motion it stops and shows the items as a wrapped list.
  *
  * The slot is repeated `repeat` times; copies after the first are hidden from
- * screen readers so each brand is announced once.
+ * screen readers and made `inert` (not focusable), so each brand link is
+ * announced and tabbed to only once.
  */
 interface Props {
   repeat?: number;
@@ -25,17 +26,11 @@ const speed = duration >= 50 ? "[--duration:50s]" : duration >= 40 ? "[--duratio
     <div
       class="marquee-copy flex shrink-0 animate-marquee justify-around gap-(--gap) group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused]"
       aria-hidden={i > 0 ? "true" : undefined}
+      inert={i > 0}
       data-copy={i}
       set:html={html}
     />
   ))}
 </div>
 
-<style>
-  /* Reduced motion: no scrolling; show one copy, wrapped onto several lines. */
-  @media (prefers-reduced-motion: reduce) {
-    .marquee { flex-wrap: wrap; }
-    .marquee-copy { flex-wrap: wrap; flex-shrink: 1; }
-    .marquee-copy:not([data-copy="0"]) { display: none; }
-  }
-</style>
+<!-- Reduced-motion rules for .marquee live in src/styles/global.css (one CSS file, one request). -->

@@ -5,7 +5,9 @@ import SearchResults from "../components/islands/SearchResults";
 import { site } from "../lib/data";
 ---
 <Base title={`Search parts | ${site.name}`} noindex>
-  <div class="wrap section">
+  <!-- min-h reserves room for results, so the footer doesn't jump down
+       when they appear (that jump counts as layout shift, CLS). -->
+  <div class="wrap section min-h-[100svh]">
     <SearchResults client:load whatsapp={site.whatsappNumber} />
   </div>
 </Base>

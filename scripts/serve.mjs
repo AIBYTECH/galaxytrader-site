@@ -3,6 +3,7 @@
  *   - serves dist/ with clean URLs (/p/gt-10021/ -> p/gt-10021/index.html);
  *   - applies the headers from dist/_headers (so the strict CSP is tested);
  *   - answers unknown URLs with dist/404.html and status 404;
+ *   - gzips text files like Cloudflare does (so Lighthouse sees real sizes);
  *   - runs functions/api/click.js for POST /api/click, with a fake D1
  *     database that keeps rows in memory (GET /__clicks lists them; tests only).
  *
@@ -15,6 +16,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 
 const DIST = resolve("dist");
 const PORT = Number(process.env.PORT || 4321);
@@ -80,5 +82,11 @@ createServer(async (req, res) => {
   for (const rule of loadHeaders()) {
     if (rule.pattern.test(url.pathname)) for (const [k, v] of rule.headers) headers[k] = v;
   }
-  res.writeHead(status, headers).end(readFileSync(path));
+  let body = readFileSync(path);
+  if (/text|javascript|json|svg|xml/.test(headers["content-type"]) && /gzip/.test(req.headers["accept-encoding"] ?? "")) {
+    body = gzipSync(body);
+    headers["content-encoding"] = "gzip";
+    headers["vary"] = "Accept-Encoding";
+  }
+  res.writeHead(status, headers).end(body);
 }).listen(PORT, () => console.log(`Serving dist/ on http://localhost:${PORT}`));

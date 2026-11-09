@@ -59,11 +59,11 @@ const year = new Date().getFullYear();
           <SearchBox client:idle />
         </div>
         <nav class="ml-auto flex gap-2 lg:ml-0" aria-label="Quick actions">
-          <a href="/list/" class="btn btn-outline px-2.5 sm:px-3" aria-label="Reorder list">
+          <a href="/list/" class="btn btn-outline px-2.5 sm:px-3">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1.2" /><circle cx="4.5" cy="12" r="1.2" /><circle cx="4.5" cy="18" r="1.2" />
             </svg>
-            <span class="hidden sm:inline">Reorder list</span>
+            <span class="sr-only sm:not-sr-only">Reorder list</span>
             <ListBadge client:idle />
           </a>
           <a href={waLink()} rel="noopener" class="btn btn-accent hidden sm:inline-flex" data-wa-click="header">WhatsApp</a>

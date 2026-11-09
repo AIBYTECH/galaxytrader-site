@@ -46,13 +46,9 @@ const steps = [
 
   <!-- ===== Hero ===== -->
   <section class="relative isolate overflow-hidden bg-ink text-white">
-    <!-- Background: dot grid faded at the edges + one slow, soft light beam -->
-    <DotPattern class="-z-10 text-white/[0.13] [mask-image:radial-gradient(ellipse_at_30%_40%,black_20%,transparent_75%)]" />
-    <div
-      aria-hidden="true"
-      class="pointer-events-none absolute -top-1/3 -left-1/4 -z-10 h-[140%] w-[70%] animate-drift rounded-full bg-[radial-gradient(closest-side,rgb(255_111_0/0.16),transparent)] blur-2xl"
-    >
-    </div>
+    <!-- Background: dot grid faded at the edges + a soft orange light beam,
+         fading in once (400 ms). Pure CSS gradients, see DotPattern.astro. -->
+    <DotPattern class="-z-10" />
 
     <div class="wrap grid gap-8 py-11 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:py-16">
       <div>
@@ -61,10 +57,22 @@ const steps = [
           {headline.map((w, i) => <><span class:list={["inline-block animate-word", delays[i]]}>{w}</span>{" "}</>)}
         </h1>
         <p class="mb-5 max-w-[560px] text-lg text-[#d5d8dd]">
-          <strong class="text-white"><NumberTicker client:visible value={products.length} /> parts</strong>{" for "}
-          <strong class="text-white"><NumberTicker client:visible value={brands.length} /> machine brands</strong>.
           Search by part number or machine, add parts to your reorder list, and send it to us on WhatsApp in one tap.
         </p>
+        <!-- The counters sit apart from the paragraph above: text that changes
+             inside the page's largest text block would delay LCP. -->
+        <dl class="mb-6 flex gap-8">
+          <div>
+            <dt class="sr-only">Parts</dt>
+            <dd class="m-0 font-head text-4xl leading-none font-extrabold text-white"><NumberTicker client:visible value={products.length} /></dd>
+            <dd class="m-0 text-sm text-[#d5d8dd]" aria-hidden="true">parts in the catalogue</dd>
+          </div>
+          <div>
+            <dt class="sr-only">Machine brands</dt>
+            <dd class="m-0 font-head text-4xl leading-none font-extrabold text-white"><NumberTicker client:visible value={brands.length} /></dd>
+            <dd class="m-0 text-sm text-[#d5d8dd]" aria-hidden="true">machine brands</dd>
+          </div>
+        </dl>
         <div class="flex flex-wrap gap-3">
           <a class="btn btn-accent btn-big" href="/list/">Open my reorder list</a>
           <a class="btn btn-ghost btn-big" href={waLink()} rel="noopener" data-wa-click="hero">Send a part photo on WhatsApp</a>

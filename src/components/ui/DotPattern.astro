@@ -1,25 +1,17 @@
 ---
 /**
- * Dot grid background (static SVG pattern, no JavaScript).
+ * Dot grid background with a soft orange light beam (no JavaScript).
  *
  * Adapted from Magic UI "Dot Pattern" (MIT): https://magicui.design/docs/components/dot-pattern
- * Changes: Astro instead of React; an SVG <pattern> fills any size, so we
- * don't need to measure the container or draw one <circle> per dot.
- * The "glow" variant is replaced by a slow CSS light beam in the hero.
+ * Changes: drawn with CSS gradients on ONE element instead of an SVG with
+ * one <circle> per dot. We first tried an SVG pattern + CSS mask + a blurred
+ * beam; on phones without fast graphics (and in PageSpeed's test browser)
+ * painting those cost seconds of main-thread time. Gradients are cheap.
+ * Styles: .dot-pattern in src/styles/global.css. It fades in once (400 ms).
  */
 interface Props {
-  size?: number;
-  radius?: number;
   class?: string;
 }
-const { size = 18, radius = 1, class: className = "" } = Astro.props;
-const id = `dots-${size}-${radius}`;
+const { class: className = "" } = Astro.props;
 ---
-<svg aria-hidden="true" class:list={["pointer-events-none absolute inset-0 h-full w-full", className]}>
-  <defs>
-    <pattern id={id} width={size} height={size} patternUnits="userSpaceOnUse">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="currentColor" />
-    </pattern>
-  </defs>
-  <rect width="100%" height="100%" fill={`url(#${id})`} />
-</svg>
+<div aria-hidden="true" class:list={["dot-pattern pointer-events-none absolute inset-0 animate-beam", className]}></div>

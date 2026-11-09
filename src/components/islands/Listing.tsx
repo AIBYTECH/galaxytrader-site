@@ -177,6 +177,7 @@ function Listing({ items, total, filters, dataUrl, pages }: Props) {
         <p className="mb-3 text-sm text-ink-2">{countText}</p>
       )}
 
+      <h2 className="sr-only">Parts</h2>
       <div ref={gridRef} className={gridClass}>
         {visible.map((item) => (
           <ProductCard key={item.sku} item={item} />

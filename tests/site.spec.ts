@@ -237,7 +237,7 @@ test.describe("without JavaScript", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "How to reorder" })).toBeVisible();
     await expect(page.locator("h1")).toHaveText(/Find and reorder your sewing machine parts/);
-    await expect(page.getByText("28 parts")).toBeVisible();
+    await expect(page.locator("dl dd").first()).toHaveText("28"); // real count, not 0
   });
 });
 

@@ -53,7 +53,7 @@
   --animate-marquee: marquee var(--duration) linear infinite;
   --animate-bump: bump 300ms ease-out;
   --animate-word: word-in 400ms ease-out both;
-  --animate-drift: drift 14s ease-in-out infinite alternate;
+  --animate-beam: beam-in 400ms ease-out both;
 
   @keyframes marquee {
     from { transform: translateX(0); }
@@ -67,9 +67,9 @@
     from { opacity: 0; filter: blur(6px); transform: translateY(6px); }
     to { opacity: 1; filter: blur(0); transform: none; }
   }
-  @keyframes drift {
-    from { transform: translate3d(-15%, -10%, 0); }
-    to { transform: translate3d(25%, 15%, 0); }
+  @keyframes beam-in {
+    from { opacity: 0; transform: translate3d(-6%, -4%, 0); }
+    to { opacity: 1; transform: none; }
   }
 }
 
@@ -144,6 +144,15 @@
   }
   .zoom { @apply transition-transform duration-300 ease-out; }
 
+  /* Hero background (DotPattern.astro). Layers, top to bottom:
+     orange light beam, fade to charcoal at the edges, 18px dot grid. */
+  .dot-pattern {
+    background:
+      radial-gradient(ellipse 55% 75% at 12% 15%, rgb(255 111 0 / 0.16), transparent 70%),
+      radial-gradient(ellipse at 30% 40%, transparent 25%, var(--color-ink) 80%),
+      radial-gradient(circle, rgb(255 255 255 / 0.14) 1px, transparent 1.6px) 0 0 / 18px 18px;
+  }
+
   /* Sections that fade + un-blur once when scrolled into view.
      Adapted from Magic UI "Blur Fade" (MIT). The hidden state only applies
      when site.ts has added .js-reveal to <html>, so with JavaScript off
@@ -166,6 +175,9 @@
     scroll-behavior: auto !important;
   }
   .js-reveal [data-reveal]:not(.is-in) { opacity: 1; filter: none; transform: none; }
+  /* Marquee: no scrolling; show one copy, wrapped onto several lines. */
+  .marquee, .marquee-copy { flex-wrap: wrap; flex-shrink: 1; }
+  .marquee-copy:not([data-copy="0"]) { display: none; }
   .spot:hover, .spot:hover .zoom { transform: none; }
 }
 
