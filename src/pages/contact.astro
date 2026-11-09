@@ -1,0 +1,16 @@
+---
+import Base from "../layouts/Base.astro";
+import { site, waLink } from "../lib/data";
+const card = "spot flex flex-col gap-1 p-4 no-underline";
+---
+<Base title={`Contact | ${site.name}`}>
+  <div class="wrap section max-w-[820px]">
+    <h1>Contact us</h1>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
+      <a class={card} href={waLink()} rel="noopener" data-wa-click="contact"><strong>WhatsApp</strong>{site.whatsappDisplay}</a>
+      <a class={card} href={`mailto:${site.email}`}><strong>Email</strong>{site.email}</a>
+      <div class={card}><strong>Shop</strong>{site.address}</div>
+      <div class={card}><strong>Hours</strong>{site.hours}</div>
+    </div>
+  </div>
+</Base>

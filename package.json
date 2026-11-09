@@ -1,0 +1,26 @@
+{
+  "name": "galaxytrader-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node scripts/postbuild.mjs",
+    "preview": "astro preview --port 4321",
+    "check": "astro check"
+  },
+  "engines": {
+    "node": ">=22.23"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@astrojs/preact": "6.1.1",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.4.2",
+    "minisearch": "7.2.0",
+    "motion": "14.6.0",
+    "preact": "10.29.8",
+    "tailwindcss": "4.3.3"
+  }
+}

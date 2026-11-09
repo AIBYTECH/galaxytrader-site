@@ -1,0 +1,24 @@
+---
+/**
+ * GT monogram + "GALAXYTRADER" wordmark.
+ * The mark itself is templates/_logo.svg (charcoal G, orange T); replace that
+ * file with the final logo and every page picks it up on the next build.
+ * `light` is for the charcoal footer: the G turns white.
+ */
+import Mark from "../../templates/_logo.svg";
+
+interface Props {
+  light?: boolean;
+}
+const { light = false } = Astro.props;
+---
+<a
+  href="/"
+  aria-label="GalaxyTrader home"
+  class:list={["inline-flex shrink-0 items-center gap-2 no-underline", light ? "text-white hover:text-white" : "text-ink hover:text-ink"]}
+>
+  <Mark class="h-[22px] w-11 sm:h-[26px] sm:w-[52px]" aria-hidden="true" />
+  <span class="font-head text-[23px] leading-none font-extrabold tracking-wide sm:text-[26px]">
+    GALAXY<span class={light ? "text-accent" : "text-accent-text"}>TRADER</span>
+  </span>
+</a>

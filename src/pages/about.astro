@@ -1,0 +1,20 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../lib/data";
+---
+<Base title={`About us | ${site.name}`}>
+  <div class="wrap section max-w-[820px] text-[17px] text-[#374151]">
+    <h1 class="text-ink">About {site.name}</h1>
+    <p class="lead">{site.longTagline}</p>
+    <!-- PLACEHOLDER: replace with the real About-us text (2-3 short paragraphs). -->
+    <p class="rounded-lg border-2 border-dashed border-accent-text bg-white p-4">
+      [PLACEHOLDER – About-us text: how long GalaxyTrader has been in business, which brands and machines you cover,
+      and who your customers are. Two or three short paragraphs are enough.]
+    </p>
+    <h2 class="mt-8 font-head text-3xl font-extrabold text-ink uppercase">How ordering works</h2>
+    <p>
+      This website is a catalogue. Find your parts, add them to your reorder list, and send the list on WhatsApp or by
+      email. We reply with availability, rates and delivery time.
+    </p>
+  </div>
+</Base>

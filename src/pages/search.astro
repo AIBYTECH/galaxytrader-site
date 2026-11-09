@@ -1,0 +1,11 @@
+---
+/** /search/?q=...: results are found in the browser (SearchResults island). */
+import Base from "../layouts/Base.astro";
+import SearchResults from "../components/islands/SearchResults";
+import { site } from "../lib/data";
+---
+<Base title={`Search parts | ${site.name}`} noindex>
+  <div class="wrap section">
+    <SearchResults client:load whatsapp={site.whatsappNumber} />
+  </div>
+</Base>

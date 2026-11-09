@@ -1,0 +1,174 @@
+/* =========================================================================
+   GalaxyTrader design system (Tailwind CSS v4)
+
+   60-30-10 colour rule:
+     60%  light neutral background (#F5F5F4) and white cards
+     30%  charcoal (#1A1A1A) for header, footer, headings and text
+     10%  orange (#FF6F00) for button fills and highlights only.
+          Orange TEXT uses #C2410C so it passes WCAG AA contrast.
+          Text on orange buttons is charcoal, never white.
+
+   Utility classes (bg-ink, text-accent-text, font-head...) come from the
+   @theme tokens below. A few repeated patterns (buttons, cards, chips)
+   are named component classes so the markup stays readable.
+   ========================================================================= */
+@import "tailwindcss";
+
+/* Self-hosted Barlow Condensed (SIL Open Font License, see /fonts/OFL.txt).
+   Only the two weights and the Latin subset we use: about 45 KB in total. */
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-latin-800-normal.woff2") format("woff2");
+}
+
+@theme {
+  --color-ink: #1a1a1a;          /* text, header, footer (30%) */
+  --color-ink-2: #4b5563;        /* secondary text, AA on white and bg */
+  --color-bg: #f5f5f4;           /* page background (60%) */
+  --color-card: #ffffff;
+  --color-line: #e2e4e8;
+  --color-accent: #ff6f00;       /* button fills, highlights (10%) */
+  --color-accent-hover: #e86400;
+  --color-accent-text: #c2410c;  /* orange text on light backgrounds */
+  --color-accent-soft: #ffb37a;  /* orange text on charcoal */
+  --color-ok: #14532d;
+  --color-ok-bg: #e3f2e9;
+  --color-warn: #7c2d12;
+  --color-warn-bg: #fdf0e1;
+
+  --font-head: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  --animate-marquee: marquee var(--duration) linear infinite;
+  --animate-bump: bump 300ms ease-out;
+  --animate-word: word-in 400ms ease-out both;
+  --animate-drift: drift 14s ease-in-out infinite alternate;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-100% - var(--gap))); }
+  }
+  @keyframes bump {
+    0%, 100% { transform: scale(1); }
+    40% { transform: scale(1.3); }
+  }
+  @keyframes word-in {
+    from { opacity: 0; filter: blur(6px); transform: translateY(6px); }
+    to { opacity: 1; filter: blur(0); transform: none; }
+  }
+  @keyframes drift {
+    from { transform: translate3d(-15%, -10%, 0); }
+    to { transform: translate3d(25%, 15%, 0); }
+  }
+}
+
+/* ---------- base ---------- */
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-bg font-sans text-base/normal text-ink antialiased; }
+  h1, h2, h3 { @apply leading-tight; }
+  h1 { @apply mt-2 mb-3 font-head text-[clamp(32px,6vw,52px)] leading-[1.02] font-extrabold uppercase; }
+  a { @apply text-ink; }
+  a:hover { @apply text-accent-text; }
+  :focus-visible { @apply outline-3 outline-offset-2 outline-accent; }
+  label { @apply block text-sm font-bold; }
+  select, textarea, input[type="number"], input[type="search"] {
+    @apply rounded-lg border border-[#9ca3af] bg-white text-base text-ink;
+  }
+  select { @apply h-12 w-full px-2.5; }
+  img { @apply h-auto max-w-full; }
+  [hidden] { display: none !important; }
+}
+
+/* ---------- reusable components ---------- */
+@layer components {
+  .wrap { @apply mx-auto w-full max-w-[1240px] px-4; }
+  .section { @apply py-10 md:py-14; }
+  .section-title { @apply mb-5 font-head text-3xl leading-none font-extrabold uppercase md:text-4xl; }
+  .lead { @apply mb-4 max-w-3xl text-[17px] text-ink-2; }
+  .sku { @apply font-mono text-xs font-semibold text-ink-2; }
+
+  /* Buttons: 44px minimum touch target everywhere. */
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-transparent px-4
+      text-[15px] leading-none font-semibold whitespace-nowrap no-underline
+      transition-[background-color,color,border-color,transform] duration-150 active:scale-[.97];
+  }
+  .btn-big { @apply min-h-13 px-5.5 text-base; }
+  .btn-accent { @apply bg-accent text-ink hover:bg-accent-hover hover:text-ink; }
+  .btn-dark { @apply bg-ink text-white hover:bg-[#333] hover:text-white; }
+  .btn-outline { @apply border-ink bg-white text-ink hover:bg-ink hover:text-white; }
+  .btn-ghost { @apply border-white/80 bg-transparent text-white hover:bg-white hover:text-ink; }
+  .btn-link { @apply border-transparent bg-transparent px-0 text-ink-2 underline hover:text-ink; }
+  .btn[disabled] { @apply cursor-not-allowed opacity-45 active:scale-100; }
+
+  .tag { @apply rounded px-2 py-0.5 text-xs font-bold; }
+  .tag-ok { @apply bg-ok-bg text-ok; }
+  .tag-warn { @apply bg-warn-bg text-warn; }
+  .tag-gray { @apply bg-[#e5e7eb] text-[#374151]; }
+
+  .chip {
+    @apply inline-flex min-h-11 items-center gap-1 rounded-full border border-[#9ca3af] bg-white px-3.5 text-sm font-semibold
+      no-underline transition-colors hover:border-ink hover:text-ink;
+  }
+  .notice { @apply my-3.5 rounded-lg bg-warn-bg px-3.5 py-3 text-[15px] text-warn; }
+  .notice a { @apply font-bold text-warn; }
+
+  /* Card with a soft lift and an orange spotlight that follows the pointer.
+     Spotlight idea adapted from Magic UI "Magic Card" (MIT), see CREDITS.md;
+     src/scripts/site.ts sets --mx/--my, so no React is needed for it. */
+  .spot {
+    @apply relative overflow-hidden rounded-[10px] border border-line bg-card
+      transition-[transform,box-shadow,border-color] duration-200 ease-out;
+  }
+  .spot::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-200;
+    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), rgb(255 111 0 / 0.12), transparent 70%);
+  }
+  @media (hover: hover) {
+    .spot:hover { @apply -translate-y-1 border-[#cbd0d6] shadow-[0_12px_28px_-12px_rgb(26_26_26/0.28)]; }
+    .spot:hover::before { @apply opacity-100; }
+    .spot:hover .zoom { @apply scale-[1.06]; }
+  }
+  .zoom { @apply transition-transform duration-300 ease-out; }
+
+  /* Sections that fade + un-blur once when scrolled into view.
+     Adapted from Magic UI "Blur Fade" (MIT). The hidden state only applies
+     when site.ts has added .js-reveal to <html>, so with JavaScript off
+     (or before it loads) every section is simply visible. */
+  .js-reveal [data-reveal]:not(.is-in) { opacity: 0; filter: blur(6px); transform: translateY(8px); }
+  [data-reveal] { transition: opacity 400ms ease-out, filter 400ms ease-out, transform 400ms ease-out; }
+}
+
+/* Smooth page changes between pages (native cross-document View Transitions;
+   browsers without support just navigate normally). */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 200ms; }
+
+/* ---------- reduced motion: no motion at all ---------- */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .js-reveal [data-reveal]:not(.is-in) { opacity: 1; filter: none; transform: none; }
+  .spot:hover, .spot:hover .zoom { transform: none; }
+}
+
+/* Astro wraps each island in <astro-island>. Astro normally adds this rule
+   as an inline <style>; we set it here too so layout never depends on it. */
+astro-island, astro-slot, astro-static-slot { display: contents; }

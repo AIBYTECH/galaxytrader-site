@@ -1,0 +1,31 @@
+---
+/**
+ * Breadcrumb trail + BreadcrumbList structured data (JSON-LD) for Google.
+ * JSON-LD is data, not a script, so the strict CSP doesn't block it.
+ */
+import { site } from "../lib/data";
+
+interface Props {
+  crumbs: [label: string, href: string][];
+  current: string;
+}
+const { crumbs, current } = Astro.props;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    ...crumbs.map(([name, href], i) => ({ "@type": "ListItem", position: i + 1, name, item: site.baseUrl + href })),
+    { "@type": "ListItem", position: crumbs.length + 1, name: current },
+  ],
+};
+---
+<nav aria-label="Breadcrumb" class="flex flex-wrap gap-1.5 pt-4.5 pb-1 text-sm text-ink-2">
+  {crumbs.map(([label, href]) => (
+    <>
+      <a href={href} class="text-ink-2">{label}</a>
+      <span aria-hidden="true">/</span>
+    </>
+  ))}
+  <span aria-current="page">{current}</span>
+</nav>
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

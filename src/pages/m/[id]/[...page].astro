@@ -1,0 +1,35 @@
+---
+/**
+ * Machine pages: /m/<machine_id>/ (+ /page/N/): every part that fits one
+ * machine model. Machines without parts get no page.
+ */
+import ListingPage from "../../../components/ListingPage.astro";
+import { getProduct, machines, paginate, toCard, type Machine } from "../../../lib/data";
+import type { CardItem } from "../../../lib/types";
+
+export function getStaticPaths() {
+  return machines
+    .filter((m) => m.skus.length)
+    .flatMap((m) => {
+      const pages = paginate(m.skus.map((s) => toCard(getProduct(s))));
+      return pages.map((items, i) => ({
+        params: { id: m.id, page: i === 0 ? undefined : `page/${i + 1}` },
+        props: { m, items, pageNo: i + 1, nPages: pages.length },
+      }));
+    });
+}
+
+const { m, items, pageNo, nPages } = Astro.props as { m: Machine; items: CardItem[]; pageNo: number; nPages: number };
+let intro = `All spare parts we stock that fit the ${m.label}.`;
+if (m.aliases.length) intro += ` Also known as: ${m.aliases.join(", ")}.`;
+---
+<ListingPage
+  title={`Parts for ${m.label}`}
+  intro={intro}
+  crumbs={[["Home", "/"], ["Machines", "/machines/"]]}
+  items={items}
+  total={m.skus.length}
+  pageNo={pageNo}
+  nPages={nPages}
+  base={m.url}
+/>

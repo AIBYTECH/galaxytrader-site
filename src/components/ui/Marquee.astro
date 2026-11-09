@@ -1,0 +1,41 @@
+---
+/**
+ * Infinite horizontal marquee (pure CSS, no JavaScript).
+ *
+ * Adapted from Magic UI "Marquee" (MIT): https://magicui.design/docs/components/marquee
+ * Changes: Astro instead of React, our colours, always pauses on hover/focus,
+ * and with reduced motion it stops and shows the items as a wrapped list.
+ *
+ * The slot is repeated `repeat` times; copies after the first are hidden from
+ * screen readers so each brand is announced once.
+ */
+interface Props {
+  repeat?: number;
+  /** seconds for one loop; bigger = slower */
+  duration?: number;
+  label: string;
+}
+const { repeat = 4, duration = 40, label } = Astro.props;
+const html = await Astro.slots.render("default");
+// Map the duration to a Tailwind class (classes must be literal strings).
+const speed = duration >= 50 ? "[--duration:50s]" : duration >= 40 ? "[--duration:40s]" : "[--duration:30s]";
+---
+<div class:list={["marquee group flex gap-(--gap) overflow-hidden [--gap:1rem]", speed]} role="region" aria-label={label}>
+  {Array.from({ length: repeat }, (_, i) => (
+    <div
+      class="marquee-copy flex shrink-0 animate-marquee justify-around gap-(--gap) group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused]"
+      aria-hidden={i > 0 ? "true" : undefined}
+      data-copy={i}
+      set:html={html}
+    />
+  ))}
+</div>
+
+<style>
+  /* Reduced motion: no scrolling; show one copy, wrapped onto several lines. */
+  @media (prefers-reduced-motion: reduce) {
+    .marquee { flex-wrap: wrap; }
+    .marquee-copy { flex-wrap: wrap; flex-shrink: 1; }
+    .marquee-copy:not([data-copy="0"]) { display: none; }
+  }
+</style>

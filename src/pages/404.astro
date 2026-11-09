@@ -1,0 +1,12 @@
+---
+/** Cloudflare Pages serves dist/404.html for any unknown URL. */
+import Base from "../layouts/Base.astro";
+import { site } from "../lib/data";
+---
+<Base title={`Page not found | ${site.name}`} noindex>
+  <div class="wrap section max-w-[820px]">
+    <h1>Page not found</h1>
+    <p class="text-[17px]">This part or page doesn't exist, or its link has changed. Try searching for the part number above, or:</p>
+    <p><a class="btn btn-accent" href="/">Go to the homepage</a></p>
+  </div>
+</Base>

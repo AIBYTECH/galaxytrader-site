@@ -1,0 +1,107 @@
+---
+/**
+ * Product page: /p/<sku>/  (e.g. /p/gt-10021/)
+ *
+ * The URL uses only the SKU, so renaming a part never breaks old links or
+ * printed QR codes. Calm on purpose: the only effect is a photo zoom on
+ * hover (desktop) or tap (phone), and the card photo morphing into this one.
+ * No Product structured data: we show no prices or offers.
+ */
+import Base from "../../layouts/Base.astro";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import ProductActions from "../../components/islands/ProductActions";
+import ProductGrid from "../../components/islands/ProductGrid";
+import { getCategory, getMachine, getProduct, productWaLink, products, site, toCard, type Product } from "../../lib/data";
+
+export function getStaticPaths() {
+  return products.map((p) => ({ params: { slug: p.slug }, props: { p } }));
+}
+
+const { p } = Astro.props as { p: Product };
+const category = getCategory(p.categoryId);
+const sub = p.subcategoryId ? getCategory(p.subcategoryId) : null;
+const leaf = sub ?? category;
+const fits = p.machineIds.map(getMachine);
+const related = p.related.map((s) => toCard(getProduct(s)));
+
+const crumbs: [string, string][] = [["Home", "/"], [category.name, category.url]];
+if (sub) crumbs.push([sub.name, sub.url]);
+
+const title = `${p.name} (${p.sku})${fits.length ? ` for ${fits[0].label}` : ""} | ${site.name}`;
+const description = `${p.sku} ${p.name}${fits.length ? `, fits ${fits.map((m) => m.label).join(", ")}` : ""}. ${p.description || site.tagline}`;
+const ogImage = p.image.startsWith("http") ? p.image : site.baseUrl + p.image;
+---
+<Base title={title} description={description} ogImage={ogImage} preloadImage={p.image}>
+  <div class="wrap">
+    <Breadcrumbs crumbs={crumbs} current={p.name} />
+
+    <article class="grid gap-7 pt-3 pb-2 lg:grid-cols-2 lg:gap-11">
+      <!-- Photo: zooms on hover; on phones, tapping toggles the zoom (CSS :focus) -->
+      <div class="group self-start overflow-hidden rounded-xl border border-line bg-white" tabindex="0" aria-label="Product photo, tap to zoom">
+        <img
+          src={p.image}
+          alt={`${p.name} (${p.sku})`}
+          width="900"
+          height="900"
+          fetchpriority="high"
+          class="aspect-square w-full cursor-zoom-in transition-transform duration-300 ease-out group-hover:scale-[1.35] group-focus:scale-[1.35] [view-transition-name:product-photo]"
+        />
+      </div>
+
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded border border-line bg-white px-2.5 py-1 font-mono text-sm font-semibold">{p.sku}</span>
+          {p.status === "discontinued" ? (
+            <span class="tag tag-gray">Discontinued</span>
+          ) : p.inStock ? (
+            <span class="tag tag-ok">In stock</span>
+          ) : (
+            <span class="tag tag-warn">Ask for stock</span>
+          )}
+        </div>
+        <h1 class="mt-3">{p.name}</h1>
+
+        {fits.length > 0 && (
+          <>
+            <h2 class="mt-4.5 mb-2 text-sm font-bold tracking-wide text-ink-2 uppercase">Fits these machines</h2>
+            <ul class="m-0 mb-2.5 flex list-none flex-wrap gap-2 p-0">
+              {fits.map((m) => <li><a class="chip" href={m.url}>{m.label}</a></li>)}
+            </ul>
+          </>
+        )}
+
+        <ProductActions
+          client:visible
+          sku={p.sku}
+          name={p.name}
+          url={p.url}
+          thumb={p.thumb}
+          moq={p.moq}
+          discontinued={p.status === "discontinued"}
+          wa={productWaLink(p)}
+        />
+
+        {p.description && <p class="mt-4.5 mb-0 text-base text-[#374151]">{p.description}</p>}
+
+        <h2 class="mt-4.5 mb-2 text-sm font-bold tracking-wide text-ink-2 uppercase">Specifications</h2>
+        <table class="w-full border-collapse overflow-hidden rounded-lg border border-line bg-white text-[15px]">
+          <tbody>
+            <tr><th scope="row" class="w-[42%] border-b border-line px-3 py-2.5 text-left align-top font-medium text-ink-2">Part number</th><td class="border-b border-line px-3 py-2.5 font-mono">{p.sku}</td></tr>
+            {p.specs.map(([k, v]) => (
+              <tr><th scope="row" class="border-b border-line px-3 py-2.5 text-left align-top font-medium text-ink-2">{k}</th><td class="border-b border-line px-3 py-2.5">{v}</td></tr>
+            ))}
+            {p.moq && <tr><th scope="row" class="border-b border-line px-3 py-2.5 text-left font-medium text-ink-2">Minimum order</th><td class="border-b border-line px-3 py-2.5">{p.moq}</td></tr>}
+            <tr><th scope="row" class="px-3 py-2.5 text-left font-medium text-ink-2">Category</th><td class="px-3 py-2.5"><a href={leaf.url}>{leaf.name}</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    {related.length > 0 && (
+      <section class="section">
+        <h2 class="section-title">Related parts</h2>
+        <ProductGrid client:visible items={related} />
+      </section>
+    )}
+  </div>
+</Base>

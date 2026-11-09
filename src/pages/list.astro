@@ -1,0 +1,13 @@
+---
+/** /list/: the customer's reorder list (saved in their browser). */
+import Base from "../layouts/Base.astro";
+import ReorderList from "../components/islands/ReorderList";
+import { site } from "../lib/data";
+---
+<Base title={`Your reorder list | ${site.name}`} noindex>
+  <div class="wrap section max-w-3xl">
+    <h1>Your reorder list</h1>
+    <p class="lead">Your list is saved on this phone or computer. Send it whenever you're ready, and it stays here for next time.</p>
+    <ReorderList client:load site={{ name: site.name, whatsappNumber: site.whatsappNumber, email: site.email }} />
+  </div>
+</Base>

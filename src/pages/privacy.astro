@@ -1,0 +1,17 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../lib/data";
+---
+<Base title={`Privacy | ${site.name}`}>
+  <div class="wrap section max-w-[820px] text-[17px] text-[#374151]">
+    <h1 class="text-ink">Privacy</h1>
+    <p>This site has no accounts and no cookies for tracking.</p>
+    <ul class="list-disc space-y-2 pl-6">
+      <li><strong>Reorder list and recently viewed parts</strong> are saved only in your own browser. We can't see them until you send the list to us.</li>
+      <li><strong>Visit statistics</strong> use Cloudflare Web Analytics, which does not use cookies or identify you.</li>
+      <li><strong>WhatsApp clicks</strong>: we count which part pages lead to a WhatsApp message (part number and time only), to know which parts customers need.</li>
+      <li><strong>Messages</strong> you send us on WhatsApp or email are used only to answer you and process your order.</li>
+    </ul>
+    <p>Questions: <a href={`mailto:${site.email}`}>{site.email}</a></p>
+  </div>
+</Base>

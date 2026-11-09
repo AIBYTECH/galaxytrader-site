@@ -1,0 +1,133 @@
+---
+/**
+ * Home page: hero (animated dot background, headline reveal, number
+ * ticker, machine picker), recently viewed, brand marquee, categories,
+ * "how to reorder" steps and the WhatsApp help strip.
+ */
+import Base from "../layouts/Base.astro";
+import DotPattern from "../components/ui/DotPattern.astro";
+import Marquee from "../components/ui/Marquee.astro";
+import NumberTicker from "../components/ui/NumberTicker";
+import MachinePicker from "../components/islands/MachinePicker";
+import RecentlyViewed from "../components/islands/RecentlyViewed";
+import { getCategory, machinesByBrand, products, site, topCategories, waLink } from "../lib/data";
+
+const brands = Object.keys(machinesByBrand);
+const pickerData = Object.fromEntries(
+  Object.entries(machinesByBrand).map(([b, ms]) => [b, ms.map((m) => ({ id: m.id, model: m.model, count: m.skus.length }))]),
+);
+
+// Headline words fade in one after another. Delays are literal class
+// names so Tailwind can see them (and no inline style attribute is needed).
+const headline = "Find and reorder your sewing machine parts".split(" ");
+const delays = [
+  "[animation-delay:0ms]", "[animation-delay:50ms]", "[animation-delay:100ms]", "[animation-delay:150ms]",
+  "[animation-delay:200ms]", "[animation-delay:250ms]", "[animation-delay:300ms]", "[animation-delay:350ms]",
+];
+
+const orgLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: site.name,
+  url: site.baseUrl,
+  email: site.email,
+  address: site.address,
+  logo: `${site.baseUrl}/img/favicon.svg`,
+};
+const steps = [
+  ["Find the part", "Search the part number or your machine model, or scan the QR code on your last parcel."],
+  ["Add to your list", "Set the quantity. Your list stays saved on this phone for next time."],
+  ["Send on WhatsApp", "One tap sends every part number and quantity to us."],
+  ["We confirm", "We reply with availability, rates and delivery time."],
+];
+---
+<Base title={`${site.name} – ${site.tagline}`}>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(orgLd)} />
+
+  <!-- ===== Hero ===== -->
+  <section class="relative isolate overflow-hidden bg-ink text-white">
+    <!-- Background: dot grid faded at the edges + one slow, soft light beam -->
+    <DotPattern class="-z-10 text-white/[0.13] [mask-image:radial-gradient(ellipse_at_30%_40%,black_20%,transparent_75%)]" />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute -top-1/3 -left-1/4 -z-10 h-[140%] w-[70%] animate-drift rounded-full bg-[radial-gradient(closest-side,rgb(255_111_0/0.16),transparent)] blur-2xl"
+    >
+    </div>
+
+    <div class="wrap grid gap-8 py-11 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:py-16">
+      <div>
+        <p class="m-0 font-mono text-[13px] font-semibold tracking-[1.5px] text-accent-soft uppercase">Parts catalogue · Karachi · All Pakistan</p>
+        <h1 class="text-[clamp(38px,7vw,62px)]">
+          {headline.map((w, i) => <span class:list={["inline-block animate-word", delays[i]]}>{w}</span>)}
+        </h1>
+        <p class="mb-5 max-w-[560px] text-lg text-[#d5d8dd]">
+          <strong class="text-white"><NumberTicker client:visible value={products.length} /> parts</strong> for
+          <strong class="text-white"><NumberTicker client:visible value={brands.length} /> machine brands</strong>.
+          Search by part number or machine, add parts to your reorder list, and send it to us on WhatsApp in one tap.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a class="btn btn-accent btn-big" href="/list/">Open my reorder list</a>
+          <a class="btn btn-ghost btn-big" href={waLink()} rel="noopener" data-wa-click="hero">Send a part photo on WhatsApp</a>
+        </div>
+      </div>
+      <MachinePicker client:visible brands={pickerData} />
+    </div>
+  </section>
+
+  <RecentlyViewed client:idle />
+
+  <!-- ===== Brand strip ===== -->
+  <section class="border-b border-line bg-white py-5" data-reveal>
+    <Marquee label="Machine brands we stock parts for" duration={40}>
+      {brands.map((b) => (
+        <a
+          href="/machines/"
+          class="font-head text-2xl font-bold tracking-wide whitespace-nowrap text-ink-2 uppercase no-underline hover:text-accent-text"
+        >
+          {b}<span class="pl-4 text-accent" aria-hidden="true">/</span>
+        </a>
+      ))}
+    </Marquee>
+  </section>
+
+  <!-- ===== Categories ===== -->
+  <section class="wrap section" data-reveal>
+    <h2 class="section-title">Shop by category</h2>
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
+      {topCategories.map((c) => (
+        <a href={c.url} class="spot flex flex-col gap-1 border-t-4 border-t-ink p-4.5 no-underline hover:border-t-accent hover:text-ink">
+          <span class="font-head text-[22px] leading-tight font-extrabold uppercase">{c.name}</span>
+          <span class="text-sm font-semibold text-accent-text">{c.skus.length} parts</span>
+          {c.children.length > 0 && (
+            <span class="text-[13px] text-ink-2">{c.children.map((id) => getCategory(id).name).join(" · ")}</span>
+          )}
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- ===== How to reorder ===== -->
+  <section class="border-y border-line bg-white">
+    <div class="wrap section" data-reveal>
+      <h2 class="section-title">How to reorder</h2>
+      <ol class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5.5 p-0">
+        {steps.map(([title, text], i) => (
+          <li class="border-t-[3px] border-ink pt-3 text-[15px] text-ink-2">
+            <span class="block font-mono font-bold text-accent-text">0{i + 1}</span>
+            <strong class="my-1 block text-lg text-ink">{title}</strong>
+            {text}
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== Help strip ===== -->
+  <section class="wrap section flex flex-wrap items-center justify-between gap-4" data-reveal>
+    <div>
+      <h2 class="section-title">Can't find a part?</h2>
+      <p class="m-0 text-ink-2">Send us a photo of the old part and your machine model. We'll find it for you.</p>
+    </div>
+    <a class="btn btn-accent btn-big" href={waLink()} rel="noopener" data-wa-click="home-help">Message us on WhatsApp</a>
+  </section>
+</Base>

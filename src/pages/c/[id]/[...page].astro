@@ -1,0 +1,42 @@
+---
+/**
+ * Category pages: /c/<category_id>/ and /c/<category_id>/page/N/
+ * 48 parts per page as static HTML (good for Google and for phones
+ * without JavaScript); the filters search the whole category.
+ */
+import ListingPage from "../../../components/ListingPage.astro";
+import { categories, getCategory, getProduct, paginate, toCard, type Category } from "../../../lib/data";
+import type { CardItem } from "../../../lib/types";
+
+export function getStaticPaths() {
+  return categories.flatMap((c) => {
+    const pages = paginate(c.skus.map((s) => toCard(getProduct(s))));
+    return pages.map((items, i) => ({
+      // page 1 -> /c/<id>/, page 2 -> /c/<id>/page/2/
+      params: { id: c.id, page: i === 0 ? undefined : `page/${i + 1}` },
+      props: { c, items, pageNo: i + 1, nPages: pages.length },
+    }));
+  });
+}
+
+const { c, items, pageNo, nPages } = Astro.props as { c: Category; items: CardItem[]; pageNo: number; nPages: number };
+const crumbs: [string, string][] = [["Home", "/"]];
+if (c.parentId) {
+  const parent = getCategory(c.parentId);
+  crumbs.push([parent.name, parent.url]);
+}
+const chips = c.children.map(getCategory).map((ch) => ({ name: ch.name, url: ch.url, count: ch.skus.length }));
+---
+<ListingPage
+  title={c.name}
+  intro={c.intro}
+  crumbs={crumbs}
+  items={items}
+  total={c.skus.length}
+  pageNo={pageNo}
+  nPages={nPages}
+  base={c.url}
+  chips={chips}
+  filters={c.filters}
+  dataUrl={`/data/c/${c.id}.json`}
+/>

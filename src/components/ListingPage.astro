@@ -1,0 +1,52 @@
+---
+/**
+ * Shared body of category pages (/c/<id>/) and machine pages (/m/<id>/):
+ * breadcrumbs, heading, intro, sub-category chips, then the Listing island
+ * (filters, grid and page links).
+ */
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "./Breadcrumbs.astro";
+import Listing from "./islands/Listing";
+import { site } from "../lib/data";
+import type { CardItem } from "../lib/types";
+
+interface Props {
+  title: string;
+  intro: string;
+  crumbs: [string, string][];
+  items: CardItem[];
+  total: number;
+  pageNo: number;
+  nPages: number;
+  /** first page URL, e.g. /c/needles/ */
+  base: string;
+  chips?: { name: string; url: string; count: number }[];
+  filters?: Record<string, { id: string; model: string }[]>;
+  dataUrl?: string;
+}
+const { title, intro, crumbs, items, total, pageNo, nPages, base, chips = [], filters = {}, dataUrl } = Astro.props;
+
+const pages = Array.from({ length: nPages }, (_, i) => ({
+  n: i + 1,
+  href: i === 0 ? base : `${base}page/${i + 1}/`,
+  current: i + 1 === pageNo,
+}));
+const pageTitle = `${title}${pageNo > 1 ? ` – page ${pageNo}` : ""} | ${site.name}`;
+---
+<Base title={pageTitle} description={`${intro || title} ${total} parts. Ask on WhatsApp.`}>
+  <div class="wrap">
+    <Breadcrumbs crumbs={crumbs} current={title} />
+    <header class="pb-2">
+      <h1>{title}</h1>
+      {intro && <p class="lead">{intro}</p>}
+      {chips.length > 0 && (
+        <ul class="m-0 mb-2.5 flex list-none flex-wrap gap-2 p-0">
+          {chips.map((c) => (
+            <li><a class="chip" href={c.url}>{c.name} <small class="font-normal text-ink-2">({c.count})</small></a></li>
+          ))}
+        </ul>
+      )}
+    </header>
+    <Listing client:visible items={items} total={total} filters={filters} dataUrl={dataUrl} pages={pages} />
+  </div>
+</Base>
