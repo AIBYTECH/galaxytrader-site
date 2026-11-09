@@ -1,6 +1,11 @@
 # Build the catalogue and deploy it to Cloudflare Pages.
 #   push to "main"    -> live site (galaxytraderco.com)
 #   push to "staging" -> preview URL (staging.galaxytrader.pages.dev)
+#
+# Steps: Python validates the workbook and writes JSON -> Astro builds the
+# static pages into dist/ -> wrangler uploads dist/ plus functions/ (the
+# /api/click Pages Function) to the Pages project "galaxytrader".
+#
 # Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID,
 # and repository variables WHATSAPP_NUMBER, WHATSAPP_DISPLAY, IMG_BASE_URL.
 name: Build and deploy
@@ -9,6 +14,10 @@ on:
   push:
     branches: [main, staging]
   workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -29,11 +38,16 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Python packages
         run: pip install -r requirements.txt
 
-      - name: Validate workbook and build site
-        run: python build.py
+      - name: Validate workbook and write JSON
+        run: python build.py --emit-json
 
       - name: Keep the validation report
         if: always()
@@ -43,6 +57,13 @@ jobs:
           path: build/validation_report.csv
           if-no-files-found: ignore
 
+      - name: Build the site (Astro + budget and CSP checks)
+        run: |
+          npm ci
+          npm run build
+
+      # functions/ sits next to dist/ in the project root, so wrangler
+      # deploys the /api/click function together with the pages.
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
