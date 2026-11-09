@@ -2,7 +2,8 @@
 Site-wide settings for the GalaxyTrader catalogue.
 
 Everything a non-developer might want to change (phone number, email,
-address, colours) lives here, so the templates never hard-code it.
+address) lives here; build.py --emit-json passes it to the website as
+src/data/site.json, so the pages never hard-code it.
 Values that differ between your PC and the live site (like where images
 are served from) are read from environment variables / a .env file.
 """
@@ -51,9 +52,8 @@ PRODUCTS_PER_PAGE = 48          # products on each category / machine page
 RELATED_LIMIT = 8               # "related parts" shown on a product page
 MAX_SITE_FILES = 19_000         # Cloudflare Pages free limit is 20,000 files
 
-# Brand colours (60-30-10 rule): neutral background, charcoal structure,
-# orange accent. Orange is for fills; orange *text* uses the darker shade
-# so it stays readable (WCAG AA contrast).
+# Brand colours (60-30-10 rule), for reference. The website itself takes
+# its colours from the @theme block in src/styles/global.css; change both.
 COLORS = {
     "ink": "#1A1A1A",
     "bg": "#F5F5F4",
