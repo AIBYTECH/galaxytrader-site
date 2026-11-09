@@ -58,10 +58,10 @@ const steps = [
       <div>
         <p class="m-0 font-mono text-[13px] font-semibold tracking-[1.5px] text-accent-soft uppercase">Parts catalogue · Karachi · All Pakistan</p>
         <h1 class="text-[clamp(38px,7vw,62px)]">
-          {headline.map((w, i) => <span class:list={["inline-block animate-word", delays[i]]}>{w}</span>)}
+          {headline.map((w, i) => <><span class:list={["inline-block animate-word", delays[i]]}>{w}</span>{" "}</>)}
         </h1>
         <p class="mb-5 max-w-[560px] text-lg text-[#d5d8dd]">
-          <strong class="text-white"><NumberTicker client:visible value={products.length} /> parts</strong> for
+          <strong class="text-white"><NumberTicker client:visible value={products.length} /> parts</strong>{" for "}
           <strong class="text-white"><NumberTicker client:visible value={brands.length} /> machine brands</strong>.
           Search by part number or machine, add parts to your reorder list, and send it to us on WhatsApp in one tap.
         </p>
