@@ -592,7 +592,180 @@ def build(relative: bool) -> None:
         sys.exit(f"Too many files ({total}); Cloudflare Pages allows 20,000. Serve images from R2 (set IMG_BASE_URL).")
 
 
+# ---------------------------------------------------------------------------
+# 5. JSON mode: data for the Astro front end
+# ---------------------------------------------------------------------------
+SRC_DATA = ROOT / "src" / "data"      # read by Astro at build time (not served)
+PUBLIC = ROOT / "public"              # copied as-is into dist/ by Astro
+
+
+def img_url(sku: str, size: int) -> str:
+    """URL of a product photo: R2 on the live site, /img/p/ on your PC."""
+    name = f"{sku.lower()}-{size}.webp"
+    return f"{config.IMG_BASE_URL}/p/{name}" if config.IMG_BASE_URL else f"/img/p/{name}"
+
+
+def fits_text(p: Product) -> str:
+    """'Juki DDL-8700, Brother S-7200 +3' (short text for cards)."""
+    text = ", ".join(m.label for m in p.machines[:2])
+    return text + (f" +{len(p.machines) - 2}" if len(p.machines) > 2 else "")
+
+
+def write_json(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def headers_file() -> str:
+    """Cloudflare Pages _headers: security headers, strict CSP and caching.
+
+    Astro is configured to emit every script and stylesheet as a file
+    (no inline code), so 'self' is enough and no 'unsafe-inline' is needed.
+    """
+    img_host = ""
+    if config.IMG_BASE_URL:
+        u = urlparse(config.IMG_BASE_URL)
+        img_host = f" {u.scheme}://{u.netloc}"
+    csp = ("default-src 'self'; "
+           f"img-src 'self' data:{img_host}; "
+           "script-src 'self' https://static.cloudflareinsights.com; "
+           "connect-src 'self' https://cloudflareinsights.com; "
+           "style-src 'self'; font-src 'self'; "
+           "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+    return ("/*\n"
+            f"  Content-Security-Policy: {csp}\n"
+            "  X-Content-Type-Options: nosniff\n"
+            "  Referrer-Policy: strict-origin-when-cross-origin\n"
+            "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
+            "/_astro/*\n  Cache-Control: public, max-age=31536000, immutable\n"
+            "/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n"
+            "/img/*\n  Cache-Control: public, max-age=31536000, immutable\n"
+            "/data/*\n  Cache-Control: public, max-age=600\n")
+
+
+def emit_json() -> None:
+    """Validate the workbook, then write the data files Astro builds pages from.
+
+    src/data/   site.json, products.json, categories.json, machines.json
+    public/     data/search-index.json, data/c/<id>.json (filters),
+                sitemap.xml, robots.txt, _headers, img/p/*.webp (PC only)
+    """
+    report = Report()
+    categories, machines, products = load_and_validate(report)
+    report.write(BUILD_DIR / "validation_report.csv")
+    n_err, n_warn = len(report.errors), len(report.items) - len(report.errors)
+    print(f"Validation: {len(products)} products OK, {n_err} error(s), {n_warn} warning(s)"
+          f" -> build/validation_report.csv")
+    for e in report.errors[:15]:
+        print(f"  ERROR {e['sheet']} row {e['row']} [{e['column']}]: {e['problem']} -> {e['fix']}")
+    if n_err:
+        sys.exit("Build stopped: fix the errors above (full list in build/validation_report.csv).")
+
+    # -- site settings from config.py (one source of truth for both builds) --
+    write_json(SRC_DATA / "site.json", {
+        "name": config.SITE_NAME, "tagline": config.TAGLINE, "longTagline": config.LONG_TAGLINE,
+        "whatsappNumber": config.WHATSAPP_NUMBER, "whatsappDisplay": config.WHATSAPP_DISPLAY,
+        "email": config.EMAIL, "address": config.ADDRESS, "hours": config.HOURS,
+        "baseUrl": config.BASE_URL, "imgBaseUrl": config.IMG_BASE_URL,
+        "perPage": config.PRODUCTS_PER_PAGE, "maxSiteFiles": config.MAX_SITE_FILES,
+    })
+
+    # -- products: everything a product page needs ----------------------------
+    out_products = []
+    for p in products:
+        leaf = p.leaf_category
+        ids = {m.id for m in p.machines}
+        related = [q.sku for q in leaf.products if q is not p and (not ids or ids & {m.id for m in q.machines})]
+        out_products.append({
+            "sku": p.sku, "slug": p.slug, "url": p.url, "name": p.name,
+            "categoryId": p.category.id, "subcategoryId": p.subcategory.id if p.subcategory else "",
+            "machineIds": [m.id for m in p.machines], "brands": sorted({m.brand for m in p.machines}),
+            "fits": fits_text(p), "description": p.description, "specs": p.specs,
+            "aliases": p.aliases, "moq": p.moq, "inStock": p.in_stock, "status": p.status,
+            "thumb": img_url(p.sku, 300), "image": img_url(p.sku, 900),
+            "related": related[:config.RELATED_LIMIT],
+        })
+    write_json(SRC_DATA / "products.json", out_products)
+
+    # -- categories (+ the brand/model choices for each category's filters) ---
+    out_cats = []
+    for c in categories.values():
+        brands = defaultdict(set)
+        for p in c.products:
+            for m in p.machines:
+                brands[m.brand].add((m.id, m.model))
+        out_cats.append({
+            "id": c.id, "name": c.name, "parentId": c.parent_id, "intro": c.intro, "url": c.url,
+            "children": [ch.id for ch in c.children],
+            "skus": [p.sku for p in sorted(c.products, key=lambda p: p.sku)],
+            "filters": {b: sorted([{"id": i, "model": mo} for i, mo in s], key=lambda x: x["model"])
+                        for b, s in sorted(brands.items())},
+        })
+    write_json(SRC_DATA / "categories.json", out_cats)
+
+    # -- machines --------------------------------------------------------------
+    write_json(SRC_DATA / "machines.json", [{
+        "id": m.id, "brand": m.brand, "model": m.model, "label": m.label, "aliases": m.aliases, "url": m.url,
+        "skus": [p.sku for p in sorted(m.products, key=lambda p: (p.category.name, p.sku))],
+    } for m in sorted(machines.values(), key=lambda m: (m.brand, m.model))])
+
+    # -- public files: loaded by the browser, so keep them small --------------
+    data_dir = PUBLIC / "data"
+    if data_dir.exists():
+        shutil.rmtree(data_dir)       # drop files for categories that no longer exist
+    card_keys = ("sku", "name", "url", "thumb", "fits", "brands", "inStock", "status", "moq")
+    by_sku = {p["sku"]: p for p in out_products}
+    for c in out_cats:
+        cards = [{k: by_sku[s][k] for k in card_keys} | {"machines": by_sku[s]["machineIds"]} for s in c["skus"]]
+        write_json(data_dir / "c" / f"{c['id']}.json", cards)
+    write_json(data_dir / "search-index.json", [{
+        "id": p.sku, "sku": p.sku, "skuNorm": sku_norm(p.sku), "name": p.name,
+        "aliases": " ".join(p.aliases),
+        "machines": " ".join([m.label for m in p.machines] + [a for m in p.machines for a in m.aliases]),
+        "category": p.leaf_category.name, "url": p.url, "thumb": img_url(p.sku, 300),
+        "fits": fits_text(p), "status": p.status, "inStock": p.in_stock, "moq": p.moq,
+    } for p in products])
+
+    urls = ["/", "/machines/", "/about/", "/contact/"] + [c.url for c in categories.values()] \
+        + [m.url for m in machines.values() if m.products] + [p.url for p in products]
+    today = date.today().isoformat()
+    sitemap = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    sitemap += [f"  <url><loc>{config.BASE_URL}{u}</loc><lastmod>{today}</lastmod></url>" for u in urls]
+    sitemap.append("</urlset>")
+    (PUBLIC / "sitemap.xml").write_text("\n".join(sitemap), encoding="utf-8")
+    (PUBLIC / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /list/\n\nSitemap: {config.BASE_URL}/sitemap.xml\n")
+    (PUBLIC / "_headers").write_text(headers_file())
+
+    # Local preview: copy processed photos in. Live site: they're served from R2.
+    img_dir = PUBLIC / "img" / "p"
+    if img_dir.exists():
+        shutil.rmtree(img_dir)
+    if not config.IMG_BASE_URL and (BUILD_DIR / "img").exists():
+        img_dir.mkdir(parents=True)
+        for f in (BUILD_DIR / "img").glob("*.webp"):
+            shutil.copy2(f, img_dir / f.name)
+
+    # -- data for the future AI assistant (kept out of the public site) -----
+    with (BUILD_DIR / "catalog.jsonl").open("w", encoding="utf-8") as f:
+        for p in products:
+            f.write(json.dumps({
+                "sku": p.sku, "name": p.name, "category": p.leaf_category.name,
+                "machines": [m.id for m in p.machines], "machine_labels": [m.label for m in p.machines],
+                "specs": dict(p.specs), "aliases": p.aliases, "description": p.description,
+                "in_stock": p.in_stock, "status": p.status, "url": config.BASE_URL + p.url,
+            }, ensure_ascii=False) + "\n")
+
+    print(f"Wrote JSON for {len(products)} products, {len(categories)} categories, "
+          f"{len(machines)} machines -> src/data/ and public/. Next: npm run build")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build the GalaxyTrader catalogue.")
+    parser.add_argument("--emit-json", action="store_true",
+                        help="validate and write JSON for the Astro front end (instead of HTML)")
     parser.add_argument("--relative", action="store_true", help="use relative links (for previews opened from a folder)")
-    build(parser.parse_args().relative)
+    args = parser.parse_args()
+    if args.emit_json:
+        emit_json()
+    else:
+        build(args.relative)
