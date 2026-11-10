@@ -11,7 +11,7 @@ Output:
 
 Each QR opens https://galaxytraderco.com/p/gt-10021/, so a customer can scan
 the label on their last parcel and reorder the same part in seconds.
-Only print a sheet for the parts you need:  python make_qr.py --sku GT-10021 GT-10115
+Only print a sheet for the parts you need:  python make_qr.py --sku 244122 S70F-1/8
 """
 
 import argparse
@@ -71,9 +71,10 @@ def main() -> None:
 
     # 1. Single QR files
     for p in parts:
-        make_qr_image(p["url"], 600).save(OUT / f"{p['sku']}.png")
+        name = p["sku"].replace("/", "_")      # "/" can't be in a file name (S70F-1/8 -> S70F-1_8.png)
+        make_qr_image(p["url"], 600).save(OUT / f"{name}.png")
         svg = qrcode.make(p["url"], image_factory=qrcode.image.svg.SvgPathImage, border=1)
-        svg.save(str(OUT / f"{p['sku']}.svg"))
+        svg.save(str(OUT / f"{name}.svg"))
 
     # 2. A4 label sheets
     cell_w = (A4[0] - 2 * MARGIN_X) // COLS

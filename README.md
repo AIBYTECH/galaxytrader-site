@@ -111,11 +111,11 @@ npm run test:e2e                  # every feature, on a phone (390 px) and a des
 4. If `build.py` reports **errors**, open `build/validation_report.csv`, fix those rows and run it again. **Warnings** (like a missing description) don't block the build.
 5. Commit `data/products.xlsx` and `data/image_manifest.json`, push to **staging** to check the preview, then merge into **main** to go live.
 
-Rules the build checks: unique SKUs (3-20 capital letters, digits and dashes), categories and machines that exist on their sheets, specs written as `Key: Value; Key: Value`, whole-number MOQ and Yes/No stock. A missing photo is only a warning. Rows with status `draft` are skipped; `discontinued` parts stay online with an "Ask for an alternative" button.
+Rules the build checks: unique SKUs (3-20 capital letters, digits, `-`, `.` and `/`, e.g. `244122`, `S70F-1/8`, `H10-1.0MM`), categories and machines that exist on their sheets, specs written as `Key: Value; Key: Value`, whole-number MOQ and Yes/No stock. A missing photo is only a warning. Rows with status `draft` are skipped; `discontinued` parts stay online with an "Ask for an alternative" button.
 
 Local names and other spellings go in the **aliases** columns (e.g. `kanda` for a rotary hook): search finds them. Search also ignores dashes, spaces and capitals in part numbers and reads a letter O as zero, so `gt10115`, `GT-1O115` and `ddl8700` all work.
 
-**URLs never change.** Product pages live at `/p/<sku>/` (e.g. `/p/gt-10021/`), so renaming a part never breaks old links or printed QR codes. Categories: `/c/<category_id>/` (48 parts per page, then `/page/2/`...). Machines: `/m/<machine_id>/`.
+**URLs never change.** Product pages live at `/p/<sku>/` in lower case, with `/` and `.` written as `-` (e.g. `/p/244122/`, `S70F-1/8` → `/p/s70f-1-8/`); photo files in `photos/` write `/` as `_` (`S70F-1_8.png`), so renaming a part never breaks old links or printed QR codes. Categories: `/c/<category_id>/` (48 parts per page, then `/page/2/`...). Machines: `/m/<machine_id>/`.
 
 ### Importing the Yao Han catalogue
 
@@ -138,7 +138,7 @@ python process_images.py --upload
 ```
 python build.py --emit-json               # writes build/catalog.jsonl
 python make_qr.py                         # all parts
-python make_qr.py --sku GT-10021 GT-10115 # only some parts
+python make_qr.py --sku 244122 S70F-1/8   # only some parts
 ```
 
 Output in `build/qr/`: a PNG and SVG per part, and `labels-A4.pdf` (24 labels per page: QR, part number, name).
@@ -221,7 +221,7 @@ GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 - [ ] About-us text is in `src/pages/about.astro`; two details are still marked in dashed boxes: the year you started, and the delivery area
 - [x] Real products: the Yao Han 2017 catalogue (branch `full-catalogue`)
 - [ ] Enable R2, create the bucket + API token, run `python process_images.py --upload`, set `IMG_BASE_URL` in the Worker's build variables
-- [ ] Decide the SKU rule for the 161 catalogue numbers with `.`, `/` or `mm` (listed in the tool's `sku_check.csv`)
+- [x] SKU rule: catalogue numbers with `.` and `/` are allowed; `mm` is written `MM`
 - [ ] Check `held_for_supplier.csv` with Yao Han and settle the clashes in `corrections.csv`
 - [ ] Check PageSpeed Insights (mobile) on the staging preview URL after the first deploy
 - [x] Click log: D1 database `galaxytrader-logs` created and bound as `LOG_DB`
