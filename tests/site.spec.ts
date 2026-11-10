@@ -177,6 +177,23 @@ test("category filters: machine model", async ({ page }) => {
   await expect(page.locator("article[data-sku]").first()).toBeVisible();
 });
 
+test("part numbers with / and . get a clean URL and are found by search", async ({ page }) => {
+  const slash = products.find((p) => p.sku.includes("/") && p.hasPhoto)!;
+  const dot = products.find((p) => p.sku.includes("."))!;
+  for (const p of [slash, dot]) {
+    expect(p.url).toBe(`/p/${p.sku.toLowerCase().replace(/[/.]/g, "-")}/`);
+    const res = await page.goto(p.url);
+    expect(res?.status(), p.sku).toBe(200);
+    await expect(page.getByText(p.sku, { exact: true }).first()).toBeVisible();
+  }
+  await page.goto("/");
+  await hydrated(page);
+  await page.getByRole("combobox", { name: "Search parts" }).fill(slash.sku);
+  const option = page.getByRole("listbox").getByRole("option", { name: new RegExp(esc(slash.sku)) }).first();
+  await expect(option).toBeVisible();
+  await expect(option.locator("img")).toHaveAttribute("src", new RegExp(`${esc(slash.url.slice(3, -1))}-300\\.webp$`));
+});
+
 test("part without a photo shows 'Photo coming soon'", async ({ page }) => {
   await page.goto(slugUrl(noPhoto));
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
