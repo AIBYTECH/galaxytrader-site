@@ -33,6 +33,35 @@ export function skuNorm(text: string): string {
   return text.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/O/g, "0");
 }
 
+/** The compact index written by build.py (see search_index() there). */
+interface PackedIndex {
+  v: 2;
+  img: string;               // photo URL prefix, e.g. https://img.galaxytraderco.com/p/
+  ph: string;                // "Photo coming soon" picture
+  m: [string, string][];     // machines: [label, aliases]
+  c: string[];               // category names
+  d: [string, string, number, number[], string, number?, number?][];
+}
+
+/** Turn the compact rows back into search documents. */
+export function unpack(idx: PackedIndex) {
+  return idx.d.map(([sku, name, cat, ms, aliases, flags = 0, moq]) => {
+    const labels = ms.map((i) => idx.m[i][0]);
+    const slug = sku.toLowerCase();
+    return {
+      id: sku, sku, skuNorm: skuNorm(sku), name, aliases,
+      machines: ms.map((i) => `${idx.m[i][0]} ${idx.m[i][1]}`).join(" "),
+      category: idx.c[cat],
+      url: `/p/${slug}/`,
+      thumb: flags & 1 ? idx.ph : `${idx.img}${slug}-300.webp`,
+      fits: labels.slice(0, 2).join(", ") + (labels.length > 2 ? ` +${labels.length - 2}` : ""),
+      status: flags & 2 ? "discontinued" : "active",
+      inStock: !(flags & 4),
+      moq: moq ?? null,
+    };
+  });
+}
+
 let ready: Promise<MiniSearch<SearchDoc>> | null = null;
 
 /** Download MiniSearch + the index once; later calls reuse the same promise. */
@@ -41,9 +70,10 @@ export function loadSearch(): Promise<MiniSearch<SearchDoc>> {
     import("minisearch"),
     fetch("/data/search-index.json").then((r) => {
       if (!r.ok) throw new Error(`search index: HTTP ${r.status}`);
-      return r.json();
+      return r.json() as Promise<PackedIndex>;
     }),
-  ]).then(([{ default: MiniSearchClass }, docs]) => {
+  ]).then(([{ default: MiniSearchClass }, packed]) => {
+    const docs = unpack(packed);
     const ms = new MiniSearchClass<SearchDoc>({
       fields: ["sku", "skuNorm", "name", "aliases", "machines", "category"],
       storeFields: ["sku", "name", "url", "thumb", "fits", "status", "inStock", "moq"],

@@ -45,6 +45,11 @@ BASE_URL = (os.getenv("BASE_URL") or "https://galaxytraderco.com").rstrip("/")
 #   - Your PC / preview: leave empty and the build copies photos into dist/img/
 IMG_BASE_URL = (os.getenv("IMG_BASE_URL") or "").rstrip("/")
 
+# Local preview of an R2 build: IMG_PREVIEW=1 with IMG_BASE_URL=http://localhost:4321/r2
+# serves build/img/ through scripts/serve.mjs and counts converted photos as
+# uploaded. Never set it for the live site.
+IMG_PREVIEW = os.getenv("IMG_PREVIEW") == "1"
+
 # ---------------------------------------------------------------------------
 # Build settings
 # ---------------------------------------------------------------------------

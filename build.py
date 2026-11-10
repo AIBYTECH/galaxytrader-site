@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import re
 import shutil
 import sys
@@ -92,6 +93,7 @@ class Product:
     moq: int | None
     in_stock: bool
     status: str
+    has_photo: bool = True
 
     @property
     def slug(self) -> str:
@@ -173,7 +175,7 @@ class Report:
 def load_and_validate(report: Report):
     """Read the workbook, check every rule, and return (categories, machines, products)."""
     if not DATA_FILE.exists():
-        sys.exit(f"{DATA_FILE} not found. Run `python make_sample_data.py` to create a sample.")
+        sys.exit(f"{DATA_FILE} not found. Export it with the catalogue tool (see README).")
     wb = load_workbook(DATA_FILE, read_only=True, data_only=True)
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
 
@@ -297,17 +299,21 @@ def load_and_validate(report: Report):
         if stock_text == "":
             report.warn("products", row, "in_stock", f"{sku}: stock is empty, shown as in stock", "Pick Yes or No")
 
-        if sku not in manifest:
-            report.error("products", row, "photo", f"{sku}: no processed photo",
-                         f"Put {sku}.jpg in photos/ and run process_images.py")
-            ok = False
+        # Live site: the photo must already be on R2 ("r2" = hash of the uploaded
+        # version). On your PC, or a local preview (IMG_PREVIEW=1), converting it is enough.
+        entry = manifest.get(sku)
+        has_photo = bool(entry) and (not config.IMG_BASE_URL or config.IMG_PREVIEW or bool(entry.get("r2")))
+        if not has_photo:
+            # Not an error: the part is shown with the shared "Photo coming soon" picture.
+            report.warn("products", row, "photo", f"{sku}: no photo (shows 'Photo coming soon')",
+                        f"Put {sku}.jpg in photos/ and run process_images.py --upload")
 
         if not r.get("description"):
             report.warn("products", row, "description", f"{sku}: no description", "Add one sentence for top-selling parts")
 
         if ok:
             products.append(Product(row, sku, name, cat, sub, mlist, r.get("description", ""), specs,
-                                    split_list(r.get("aliases", "")), moq, stock_text != "no", status))
+                                    split_list(r.get("aliases", "")), moq, stock_text != "no", status, has_photo))
 
     # Link products to their categories and machines.
     for p in products:
@@ -332,22 +338,21 @@ PUBLIC = ROOT / "public"              # copied as-is into dist/ by Astro
 
 
 def copy_local_images(products: list, img_dir: Path) -> None:
-    """Put a 300 px and a 900 px WebP for every product into public/img/p/.
+    """Small catalogues without R2 only: put a 300 px and a 900 px WebP for
+    every product that has a photo into public/img/p/.
 
     Where each photo comes from, first match wins:
       1. build/img/<sku>-<size>.webp, made by process_images.py
       2. photos/<SKU>.jpg (or .png/.webp), converted here on the fly
-      3. the drawn placeholder for a sample SKU (make_sample_data.py)
-    So a fresh clone, GitHub Actions and Cloudflare's own build all show the
-    sample photos even though photos/ and build/ are not in Git.
+    Parts without either show the shared "Photo coming soon" picture.
     """
     from PIL import Image                      # imported here: only needed for local images
     from process_images import EXTENSIONS, PHOTO_DIR, SIZES, make_square
-    from make_sample_data import sample_photo
 
     img_dir.mkdir(parents=True)
-    missing = []
     for p in products:
+        if not p.has_photo:
+            continue
         names = [f"{p.sku.lower()}-{s}.webp" for s in SIZES]
         processed = [BUILD_DIR / "img" / n for n in names]
         if all(f.exists() for f in processed):
@@ -355,21 +360,23 @@ def copy_local_images(products: list, img_dir: Path) -> None:
                 shutil.copy2(f, img_dir / f.name)
             continue
         original = next((f for ext in EXTENSIONS for f in [PHOTO_DIR / f"{p.sku}{ext}"] if f.exists()), None)
-        img = Image.open(original) if original else sample_photo(p.sku)
-        if img is None:
-            missing.append(p.sku)
+        if original is None:
+            p.has_photo = False                # listed in the manifest, but not on this PC
             continue
-        with img:
+        with Image.open(original) as img:
             for size, name in zip(SIZES, names):
                 make_square(img, size).save(img_dir / name, "WEBP", quality=80, method=6)
-    if missing:
-        print(f"Note: no photo found for {len(missing)} part(s) ({', '.join(missing[:5])}); "
-              "run process_images.py or set IMG_BASE_URL.")
 
 
-def img_url(sku: str, size: int) -> str:
-    """URL of a product photo: R2 on the live site, /img/p/ on your PC."""
-    name = f"{sku.lower()}-{size}.webp"
+PLACEHOLDER = "/img/photo-coming-soon.svg"     # one shared picture for parts without a photo
+
+
+def img_url(p: "Product", size: int) -> str:
+    """URL of a product photo: R2 on the live site, /img/p/ on your PC,
+    the shared placeholder when the part has no photo."""
+    if not p.has_photo:
+        return PLACEHOLDER
+    name = f"{p.sku.lower()}-{size}.webp"
     return f"{config.IMG_BASE_URL}/p/{name}" if config.IMG_BASE_URL else f"/img/p/{name}"
 
 
@@ -426,15 +433,118 @@ def validate():
     return categories, machines, products
 
 
+#: More products than this need R2 for photos: copying them into dist/ would
+#: blow the 20,000-file limit of Cloudflare's free plan.
+LOCAL_PHOTO_LIMIT = 1000
+#: Pages that always exist (home, machines, about, contact, privacy, list, search, 404).
+STATIC_PAGES = 8
+
+
+def pages_needed(n: int) -> int:
+    return max(1, math.ceil(n / config.PRODUCTS_PER_PAGE))
+
+
+def estimate_site_files(categories: dict, machines: dict, products: list) -> dict:
+    """How many files dist/ will have, worked out BEFORE building.
+
+    One HTML file per product page, per category/machine listing page
+    (48 parts per page), the fixed pages, the JSON data files, the files
+    in public/ and Astro's script/style bundles (counted from the last
+    build, or 60 if there is none). Product photos only count without R2.
+    """
+    est = {
+        "product pages": len(products),
+        # main categories with subcategories show tiles only (one page)
+        "category pages": sum(1 if c.children else pages_needed(len(c.products)) for c in categories.values()),
+        "machine pages": sum(pages_needed(len(m.products)) for m in machines.values() if m.products),
+        "other pages": STATIC_PAGES,
+        "data files": sum(1 for c in categories.values() if not c.children) + 1,
+    }
+    static = [f for f in PUBLIC.rglob("*")
+              if f.is_file() and not f.relative_to(PUBLIC).as_posix().startswith(("data/", "img/p/"))
+              and f.name not in ("sitemap.xml", "robots.txt", "_headers")]
+    est["public files"] = len(static) + 3          # + sitemap.xml, robots.txt, _headers
+    astro_dir = ROOT / "dist" / "_astro"
+    est["script/style bundles"] = len(list(astro_dir.iterdir())) if astro_dir.exists() else 60
+    est["product photos"] = 0 if config.IMG_BASE_URL else 2 * sum(p.has_photo for p in products)
+    est["TOTAL"] = sum(est.values())
+    return est
+
+
+def check_scale(categories: dict, machines: dict, products: list) -> None:
+    """Stop early (before anything is written) if the site can't be deployed."""
+    if not config.IMG_BASE_URL and len(products) > LOCAL_PHOTO_LIMIT:
+        sys.exit(f"Build stopped: {len(products)} products but IMG_BASE_URL is empty.\n"
+                 f"  With more than {LOCAL_PHOTO_LIMIT} products the photos must come from R2: upload them with\n"
+                 "  `python process_images.py --upload` and set IMG_BASE_URL (Cloudflare build variables / .env).")
+    est = estimate_site_files(categories, machines, products)
+    print("Estimated files in dist/: " + ", ".join(f"{k} {v}" for k, v in est.items() if k != "TOTAL")
+          + f" -> {est['TOTAL']} (limit {config.MAX_SITE_FILES})")
+    if est["TOTAL"] > config.MAX_SITE_FILES:
+        sys.exit(f"Build stopped: about {est['TOTAL']} files, more than the {config.MAX_SITE_FILES} limit.\n"
+                 "  Options: (1) fewer listing pages - page through categories/machines in the browser\n"
+                 "  instead of one HTML file per 48 parts (raise PRODUCTS_PER_PAGE in config.py), or\n"
+                 "  (2) Cloudflare Workers Paid ($5/month) allows 100,000 files: raise MAX_SITE_FILES.")
+
+
+def search_index(products: list, machines: dict) -> dict:
+    """The search index the browser downloads (public/data/search-index.json).
+
+    Kept small for 10,000+ parts: arrays instead of objects, every machine
+    name stored once (parts point to it by number), and nothing that can be
+    worked out in the browser (URL, normalised SKU, "fits" text, photo URL
+    from the SKU). src/lib/search.ts turns it back into documents.
+
+      {"v": 2, "img": "<photo URL prefix>", "ph": "<placeholder>",
+       "m": [[label, aliases], ...], "c": [category name, ...],
+       "d": [[sku, name, category#, [machine#, ...], aliases, flags?, moq?], ...]}
+      flags: 1 = no photo, 2 = discontinued, 4 = out of stock
+    """
+    used = sorted({m.id for p in products for m in p.machines})
+    m_index = {mid: i for i, mid in enumerate(used)}
+    cat_names: list[str] = []
+    c_index: dict[str, int] = {}
+    docs = []
+    for p in products:
+        cname = p.leaf_category.name
+        if cname not in c_index:
+            c_index[cname] = len(cat_names)
+            cat_names.append(cname)
+        flags = (0 if p.has_photo else 1) | (2 if p.status == "discontinued" else 0) | (0 if p.in_stock else 4)
+        row = [p.sku, p.name, c_index[cname], [m_index[m.id] for m in p.machines], " ".join(p.aliases)]
+        if flags or p.moq:
+            row.append(flags)
+        if p.moq:
+            row.append(p.moq)
+        docs.append(row)
+    img = f"{config.IMG_BASE_URL}/p/" if config.IMG_BASE_URL else "/img/p/"
+    return {"v": 2, "img": img, "ph": PLACEHOLDER,
+            "m": [[machines[mid].label, " ".join(machines[mid].aliases)] for mid in used],
+            "c": cat_names, "d": docs}
+
+
 def emit_json() -> None:
     """Validate the workbook, then write the data files Astro builds pages from.
 
     src/data/   site.json, products.json, categories.json, machines.json
     public/     data/search-index.json, data/c/<id>.json (filters),
-                sitemap.xml, robots.txt, _headers, img/p/*.webp (PC only)
+                sitemap.xml, robots.txt, _headers, img/p/*.webp (small catalogues without R2)
     build/      catalog.jsonl (for make_qr.py and the future AI assistant)
     """
     categories, machines, products = validate()
+    check_scale(categories, machines, products)
+
+    # Photos first: on a PC without R2 a photo listed in the manifest may be
+    # missing, and then the part must show the placeholder.
+    img_dir = PUBLIC / "img" / "p"
+    if img_dir.exists():
+        shutil.rmtree(img_dir)
+    if not config.IMG_BASE_URL:
+        copy_local_images(products, img_dir)
+    no_photo = [p.sku for p in products if not p.has_photo]
+    if no_photo:
+        print(f"Warning: {len(no_photo)} part(s) have no photo and show 'Photo coming soon' "
+              f"({', '.join(no_photo[:5])}{', ...' if len(no_photo) > 5 else ''}).")
 
     # -- site settings from config.py (one source of truth for both builds) --
     write_json(SRC_DATA / "site.json", {
@@ -450,15 +560,20 @@ def emit_json() -> None:
     for p in products:
         leaf = p.leaf_category
         ids = {m.id for m in p.machines}
-        related = [q.sku for q in leaf.products if q is not p and (not ids or ids & {m.id for m in q.machines})]
+        related = []
+        for q in leaf.products:        # same subcategory, sharing a machine
+            if q is not p and (not ids or ids & {m.id for m in q.machines}):
+                related.append(q.sku)
+                if len(related) == config.RELATED_LIMIT:
+                    break
         out_products.append({
             "sku": p.sku, "slug": p.slug, "url": p.url, "name": p.name,
             "categoryId": p.category.id, "subcategoryId": p.subcategory.id if p.subcategory else "",
             "machineIds": [m.id for m in p.machines], "brands": sorted({m.brand for m in p.machines}),
             "fits": fits_text(p), "description": p.description, "specs": p.specs,
             "aliases": p.aliases, "moq": p.moq, "inStock": p.in_stock, "status": p.status,
-            "thumb": img_url(p.sku, 300), "image": img_url(p.sku, 900),
-            "related": related[:config.RELATED_LIMIT],
+            "thumb": img_url(p, 300), "image": img_url(p, 900), "hasPhoto": p.has_photo,
+            "related": related,
         })
     write_json(SRC_DATA / "products.json", out_products)
 
@@ -471,10 +586,12 @@ def emit_json() -> None:
                 brands[m.brand].add((m.id, m.model))
         out_cats.append({
             "id": c.id, "name": c.name, "parentId": c.parent_id, "intro": c.intro, "url": c.url,
-            "children": [ch.id for ch in c.children],
-            "skus": [p.sku for p in sorted(c.products, key=lambda p: p.sku)],
-            "filters": {b: sorted([{"id": i, "model": mo} for i, mo in s], key=lambda x: x["model"])
-                        for b, s in sorted(brands.items())},
+            "children": [ch.id for ch in c.children], "count": len(c.products),
+            # main categories with subcategories show tiles, not a product list
+            "skus": [] if c.children else [p.sku for p in sorted(c.products, key=lambda p: p.sku)],
+            "filters": {} if c.children else {
+                b: sorted([{"id": i, "model": mo} for i, mo in s], key=lambda x: x["model"])
+                for b, s in sorted(brands.items())},
         })
     write_json(SRC_DATA / "categories.json", out_cats)
 
@@ -491,15 +608,11 @@ def emit_json() -> None:
     card_keys = ("sku", "name", "url", "thumb", "fits", "brands", "inStock", "status", "moq")
     by_sku = {p["sku"]: p for p in out_products}
     for c in out_cats:
+        if c["children"]:
+            continue
         cards = [{k: by_sku[s][k] for k in card_keys} | {"machines": by_sku[s]["machineIds"]} for s in c["skus"]]
         write_json(data_dir / "c" / f"{c['id']}.json", cards)
-    write_json(data_dir / "search-index.json", [{
-        "id": p.sku, "sku": p.sku, "skuNorm": sku_norm(p.sku), "name": p.name,
-        "aliases": " ".join(p.aliases),
-        "machines": " ".join([m.label for m in p.machines] + [a for m in p.machines for a in m.aliases]),
-        "category": p.leaf_category.name, "url": p.url, "thumb": img_url(p.sku, 300),
-        "fits": fits_text(p), "status": p.status, "inStock": p.in_stock, "moq": p.moq,
-    } for p in products])
+    write_json(data_dir / "search-index.json", search_index(products, machines))
 
     urls = ["/", "/machines/", "/about/", "/contact/"] + [c.url for c in categories.values()] \
         + [m.url for m in machines.values() if m.products] + [p.url for p in products]
@@ -510,14 +623,6 @@ def emit_json() -> None:
     (PUBLIC / "sitemap.xml").write_text("\n".join(sitemap), encoding="utf-8")
     (PUBLIC / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /list/\n\nSitemap: {config.BASE_URL}/sitemap.xml\n")
     (PUBLIC / "_headers").write_text(headers_file())
-
-    # Live site: photos are served from R2. Without IMG_BASE_URL (your PC, a
-    # fresh clone, a preview build) they go into public/img/p/ instead.
-    img_dir = PUBLIC / "img" / "p"
-    if img_dir.exists():
-        shutil.rmtree(img_dir)
-    if not config.IMG_BASE_URL:
-        copy_local_images(products, img_dir)
 
     # -- data for the future AI assistant (kept out of the public site) -----
     with (BUILD_DIR / "catalog.jsonl").open("w", encoding="utf-8") as f:
