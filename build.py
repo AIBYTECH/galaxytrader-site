@@ -273,6 +273,8 @@ def load_and_validate(report: Report):
                 report.error("products", row, "machine_ids", f"{sku}: unknown machine '{mid}'",
                              "Add it to the machines sheet or fix the spelling")
                 ok = False
+        # Real models first, "Juki (various models)" after them ("Fits Juki DDL-9000, ...")
+        mlist.sort(key=lambda m: m.model.startswith("("))
 
         specs = []
         for pair in [p for p in r.get("specs", "").split(";") if p.strip()]:

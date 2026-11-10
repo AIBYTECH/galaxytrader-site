@@ -49,7 +49,8 @@ export function unpack(idx: PackedIndex) {
     const labels = ms.map((i) => idx.m[i][0]);
     const slug = sku.toLowerCase();
     return {
-      id: sku, sku, skuNorm: skuNorm(sku), name, aliases,
+      // other numbers for the part (e.g. the KM number U-109) are matched like the SKU
+      id: sku, sku, skuNorm: [sku, ...aliases.split(" ")].filter(Boolean).map(skuNorm).join(" "), name, aliases,
       machines: ms.map((i) => `${idx.m[i][0]} ${idx.m[i][1]}`).join(" "),
       category: idx.c[cat],
       url: `/p/${slug}/`,
