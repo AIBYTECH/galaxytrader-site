@@ -1,0 +1,56 @@
+# Check every push: validate the workbook, build the site and run the checks
+# (JavaScript budget, file count, CSP hashes).
+#
+# Deploying is NOT done here. Cloudflare Workers Builds (connected to this
+# repo in the Cloudflare dashboard) builds and deploys the "galaxytrader"
+# Worker itself: "npm run build", then "npx wrangler deploy" (wrangler.jsonc).
+# This workflow just gives you a red or green tick on GitHub, plus the
+# validation report to download when the workbook has errors.
+name: Check build
+
+on:
+  push:
+    branches: [main, staging, astro-ui]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+
+      # "npm run build" first runs the "prebuild" script, which is
+      # "python build.py --emit-json": it validates the workbook and writes
+      # the JSON. Validation errors stop the build here.
+      - name: Validate the workbook and build the site
+        run: |
+          npm ci
+          npm run build
+
+      - name: Keep the validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: build/validation_report.csv
+          if-no-files-found: ignore

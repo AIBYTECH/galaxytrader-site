@@ -1,0 +1,47 @@
+// Cloudflare Worker "galaxytrader": the static site in dist/ plus a tiny
+// script (worker/index.js) for POST /api/click.
+//
+// Workers Builds (Cloudflare dashboard, connected to GitHub) runs:
+//   build command:   npm run build      (python build.py --emit-json, astro build, checks)
+//   deploy command:  npx wrangler deploy (uploads dist/ and worker/index.js)
+//
+// The site stays a plain static Astro build: do NOT add the @astrojs/cloudflare
+// adapter. Because this file exists, "wrangler deploy" no longer tries to set
+// the project up by itself.
+{
+  "name": "galaxytrader",
+  "compatibility_date": "2026-10-01",
+  "main": "worker/index.js",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Unknown URLs get dist/404.html with status 404.
+    "not_found_handling": "404-page",
+    // /p/gt-10021/ serves dist/p/gt-10021/index.html (Astro's directory format).
+    "html_handling": "auto-trailing-slash",
+    // Only /api/* reaches worker/index.js; every page, image and script is
+    // served straight from the assets store (with dist/_headers applied).
+    "run_worker_first": ["/api/*"]
+  },
+
+  // ---------------------------------------------------------------------
+  // Click log (optional). The site works without it: clicks are ignored.
+  // To switch it on:
+  //   1. npx wrangler d1 create galaxytrader-logs
+  //   2. npx wrangler d1 execute galaxytrader-logs --remote --file=schema.sql
+  //   3. Remove the "//" in front of the block below and replace
+  //      PLACEHOLDER-D1-DATABASE-ID with the id printed by step 1.
+  // It stays commented out until then, because a deploy with a made-up
+  // database id fails.
+  // ---------------------------------------------------------------------
+  // "d1_databases": [
+  //   {
+  //     "binding": "LOG_DB",
+  //     "database_name": "galaxytrader-logs",
+  //     "database_id": "PLACEHOLDER-D1-DATABASE-ID"
+  //   }
+  // ],
+
+  "observability": { "enabled": true }
+}

@@ -4,12 +4,12 @@ A fast, static catalogue website for **galaxytraderco.com**: industrial sewing m
 
 - **No prices, no logins, no checkout.** Customers add parts to a **reorder list** (saved on their phone) and send it on **WhatsApp** or by **email**.
 - **One Excel workbook is the admin panel.** Edit `data/products.xlsx`, push to GitHub, and the site rebuilds itself.
-- **Hosting costs $0:** pages on Cloudflare Pages, photos on Cloudflare R2, deploys through GitHub Actions.
+- **Hosting costs $0:** pages on Cloudflare (a Worker with static assets), photos on Cloudflare R2, deploys through Cloudflare Workers Builds on every push.
 
 ## How it is built
 
 ```
-data/products.xlsx ──► python build.py --emit-json ──► src/data/*.json ──► npm run build ──► dist/ ──► Cloudflare Pages
+data/products.xlsx ──► python build.py --emit-json ──► src/data/*.json ──► npm run build ──► dist/ ──► Cloudflare Worker
    (the admin panel)     validates every row,           public/data/...     Astro makes static
                          stops on errors                                    HTML for every page
 ```
@@ -41,12 +41,13 @@ data/products.xlsx ──► python build.py --emit-json ──► src/data/*.js
 | `src/scripts/site.ts` | Small plain-JS helpers: scroll reveal, card spotlight, WhatsApp click counter |
 | `src/lib/` | Data loading, reorder-list storage, search, animation presets |
 | `public/` | Files copied as-is: fonts, favicon (+ generated data, sitemap, `_headers`) |
-| `functions/api/click.js` | Cloudflare Pages Function that counts WhatsApp clicks per part |
+| `wrangler.jsonc` | Cloudflare Worker settings: static files in `dist/`, the click counter, the D1 binding |
+| `worker/index.js` | Worker script for `POST /api/click`: counts WhatsApp clicks per part |
 | `schema.sql` | Table for the click log (Cloudflare D1 database) |
 | `scripts/postbuild.mjs` | CSP hashes, file count and JavaScript budget checks |
-| `scripts/serve.mjs` | Local preview that behaves like Cloudflare Pages |
+| `scripts/serve.mjs` | Local preview that behaves like the Cloudflare Worker |
 | `tests/` | Playwright tests for every feature |
-| `.github/workflows/deploy.yml` | Builds and deploys on every push |
+| `.github/workflows/check.yml` | Builds and checks every push on GitHub (deploying is done by Cloudflare) |
 | `CREDITS.md` | Every copied component with its source and licence |
 
 ## 1. Run it on your PC
@@ -124,33 +125,43 @@ python make_qr.py --sku GT-10021 GT-10115 # only some parts
 
 Output in `build/qr/`: a PNG and SVG per part, and `labels-A4.pdf` (24 labels per page: QR, part number, name).
 
-## 4. Deploy (one-time Cloudflare and GitHub setup)
+## 4. Deploy (one-time Cloudflare setup)
 
-1. **GitHub:** create a private repo `galaxytrader-site` and push this folder. Create a `staging` branch too.
-2. **R2 (photos):** Cloudflare dashboard → R2 → create bucket `galaxytrader-img`, then **Settings → Custom domains → `img.galaxytraderco.com`**. Create a second, private bucket `galaxytrader-originals` for photo backups. Create an **R2 API token** (Object Read & Write, these two buckets only) and put its keys in your `.env`.
-3. **Pages project:** Workers & Pages → Create → Pages → **Direct upload**, name it `galaxytrader`. Under **Custom domains**, add `galaxytraderco.com` and `www.galaxytraderco.com`.
-4. **API token for GitHub:** My Profile → API Tokens → Create token → **Edit Cloudflare Workers** template (or a custom token with *Cloudflare Pages: Edit*). In GitHub → Settings → Secrets and variables → Actions:
-   - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-   - Variables: `WHATSAPP_NUMBER`, `WHATSAPP_DISPLAY`, `IMG_BASE_URL` = `https://img.galaxytraderco.com`
-5. **Click log (optional, free):** Workers & Pages → D1 → create database `galaxytrader-logs`, then run
-   `npx wrangler d1 execute galaxytrader-logs --remote --file=schema.sql`.
-   In the Pages project → Settings → Bindings, add a **D1 binding** named `LOG_DB`.
-6. **Analytics (optional, free):** turn on **Web Analytics** for the Pages project.
+The site runs as a Cloudflare **Worker with static assets**: Cloudflare serves the files in `dist/` directly (applying `dist/_headers` and showing `dist/404.html` for unknown pages), and the small script `worker/index.js` only handles `POST /api/click`. All of this is set in **`wrangler.jsonc`**. The site stays a plain static Astro build; don't add the `@astrojs/cloudflare` adapter.
 
-After that, every push builds and deploys automatically (`.github/workflows/deploy.yml`):
+1. **GitHub:** the code lives in `AIBYTECH/galaxytrader-site`, with branches `main` (live) and `staging` (preview).
+2. **Worker + Workers Builds:** Cloudflare dashboard → Workers & Pages → `galaxytrader` (the Worker, connected to the GitHub repo) → **Settings → Build**:
+   - Build command: `npm run build` (runs `python build.py --emit-json` first; Cloudflare installs `requirements.txt` itself)
+   - Deploy command: `npx wrangler deploy`
+   - Root directory: `/`, **production branch: `main`**
+   - Turn on **Builds for non-production branches**; their deploy command is `npx wrangler versions upload`.
+   - **Variables and secrets** (build variables): `WHATSAPP_NUMBER` = `923348118152`, `WHATSAPP_DISPLAY` = `+92 334 8118152`, and later `IMG_BASE_URL` = `https://img.galaxytraderco.com` (leave it out until R2 is ready: the photos are then built into the site).
+3. **Custom domain:** the Worker → **Settings → Domains & Routes → Add → Custom domain**: `galaxytraderco.com`, then again for `www.galaxytraderco.com`. (The domain must be on your Cloudflare account.)
+4. **R2 (photos):** Cloudflare dashboard → R2 → create bucket `galaxytrader-img`, then **Settings → Custom domains → `img.galaxytraderco.com`**. Create a second, private bucket `galaxytrader-originals` for photo backups. Create an **R2 API token** (Object Read & Write, these two buckets only) and put its keys in your `.env`. Then set `IMG_BASE_URL` (step 2).
+5. **Click log (optional, free):** the site works without it; clicks are simply not stored.
+   ```
+   npx wrangler d1 create galaxytrader-logs
+   npx wrangler d1 execute galaxytrader-logs --remote --file=schema.sql
+   ```
+   Then in `wrangler.jsonc`, remove the `//` in front of the `d1_databases` block and replace `PLACEHOLDER-D1-DATABASE-ID` with the id the first command printed. Commit and push. (The binding is named `LOG_DB`. It lives in `wrangler.jsonc`, not in the dashboard, because each deploy uses the bindings in that file.)
+6. **Analytics (optional, free):** turn on **Web Analytics** for the domain.
+
+After that, every push builds and deploys automatically:
 
 | Push to | Result |
 | --- | --- |
-| `staging` | preview at `staging.galaxytrader.pages.dev` |
+| `staging` (or any other branch) | a **preview URL**, shown on the build in the Worker's **Deployments** tab (like `staging-galaxytrader.<your-subdomain>.workers.dev`); the live site is not touched |
 | `main` | live site `galaxytraderco.com` |
 
-The workflow runs `npm ci && npm run build` (which runs `python build.py --emit-json` first), then uploads `dist/` and `functions/` with wrangler. If validation, the JavaScript budget or the file count fails, nothing is deployed.
+If validation, the JavaScript budget or the file count fails, the build stops and nothing is deployed. Build logs: the Worker → **Deployments** → the build.
+
+GitHub also runs `.github/workflows/check.yml` on every push: the same build, without deploying, so you get a green or red tick on GitHub and can download `validation_report.csv` from the run. It needs no secrets.
+
+**Check a deploy before pushing** (optional): `npm run build`, then `npx wrangler deploy --dry-run` shows what would be uploaded.
 
 **Photos without R2:** when `IMG_BASE_URL` is empty, the build puts the photos into the site itself (from `build/img/`, else from `photos/`, else the drawn sample placeholders). A fresh clone therefore shows the sample photos with no extra steps.
 
-**If you connect the repo in Cloudflare's dashboard instead** (Git integration rather than this workflow): build command `npm run build`, output directory `dist`. Cloudflare installs `requirements.txt` automatically, so the Python step runs there too.
-
-**Never commit `.env`.** Secrets live only in `.env` on your PC and in GitHub's secrets.
+**Never commit `.env`.** Secrets live only in `.env` on your PC and in Cloudflare's build variables.
 
 ## 5. Monthly click report
 
@@ -173,15 +184,16 @@ GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 
 ## Limits to keep in mind
 
-- Cloudflare Pages free plan: **20,000 files** per site. With photos on R2, 3,500 products need about 4,000 files; the build stops at 19,000.
+- Cloudflare free plan: **20,000 static files** per Worker. With photos on R2, 3,500 products need about 4,000 files; the build stops at 19,000.
 - R2 free tier: 10 GB storage. 3,500 parts × 2 WebP sizes is about 0.5 GB.
 - JavaScript budget (gzipped): product, category and machine pages 60 KB, home 120 KB. Currently about 57 KB; the search library (5.5 KB) loads only when someone searches.
 
 ## Still to do before launch
 
-- [x] Real WhatsApp number in `.env` (`923348118152`); also add `WHATSAPP_NUMBER` and `WHATSAPP_DISPLAY` as GitHub repository variables
+- [x] Real WhatsApp number in `.env` (`923348118152`); also add `WHATSAPP_NUMBER` and `WHATSAPP_DISPLAY` as build variables of the Worker (section 4)
 - [ ] Final logo: replace `templates/_logo.svg` (the GT mark) and `public/img/favicon.svg`
 - [ ] About-us text is in `src/pages/about.astro`; two details are still marked in dashed boxes: the year you started, and the delivery area
 - [ ] Real products and photos in place of the samples
-- [ ] Check PageSpeed Insights (mobile) on the staging URL after the first deploy
+- [ ] Check PageSpeed Insights (mobile) on the staging preview URL after the first deploy
+- [ ] Click log: create the D1 database and fill in its id in `wrangler.jsonc` (section 4, step 5)
 - [ ] Phase 9 of the plan: AI parts assistant and order tracking (`build/catalog.jsonl` is already generated for it)

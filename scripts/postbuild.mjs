@@ -13,7 +13,7 @@
  *    JSON-LD (<script type="application/ld+json">) is data, not code, and
  *    needs no hash.
  *
- * 2. File count. Cloudflare Pages (free) allows 20,000 files per site;
+ * 2. File count. Cloudflare Workers static assets (free plan) allow 20,000 files;
  *    we stop at the limit in site.json (19,000) to keep a safety margin.
  *
  * 3. JavaScript budget (gzipped) per page type: home 120 KB, product and
@@ -104,7 +104,7 @@ if (styleAttrHashes.size > 10) fail(`${styleAttrHashes.size} different style="" 
 // ---------------------------------------------------------------------------
 console.log(`Files: ${files.length} in dist/ (limit ${site.maxSiteFiles})`);
 if (files.length > site.maxSiteFiles) {
-  fail(`Too many files (${files.length}). Cloudflare Pages allows 20,000; serve images from R2 (set IMG_BASE_URL).`);
+  fail(`Too many files (${files.length}). Cloudflare allows 20,000; serve images from R2 (set IMG_BASE_URL).`);
 }
 
 // ---------------------------------------------------------------------------

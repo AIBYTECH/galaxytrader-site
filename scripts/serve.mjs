@@ -1,16 +1,17 @@
 /**
- * Local preview server that behaves like Cloudflare Pages:
+ * Local preview server that behaves like Cloudflare (Workers static assets):
  *   - serves dist/ with clean URLs (/p/gt-10021/ -> p/gt-10021/index.html);
  *   - applies the headers from dist/_headers (so the strict CSP is tested);
  *   - answers unknown URLs with dist/404.html and status 404;
  *   - gzips text files like Cloudflare does (so Lighthouse sees real sizes);
- *   - runs functions/api/click.js for POST /api/click, with a fake D1
- *     database that keeps rows in memory (GET /__clicks lists them; tests only).
+ *   - sends /api/* to worker/index.js (like "run_worker_first" in
+ *     wrangler.jsonc), with a fake D1 database that keeps click rows in
+ *     memory (GET /__clicks lists them; tests only).
  *
  *   node scripts/serve.mjs            # http://localhost:4321
  *   PORT=8080 node scripts/serve.mjs
  *
- * For a full Cloudflare simulation you can also use `npx wrangler pages dev dist`.
+ * For a full Cloudflare simulation you can also use `npx wrangler dev`.
  */
 import { createServer } from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
@@ -44,25 +45,35 @@ function loadHeaders() {
   return rules;
 }
 
-// Fake D1: just enough of prepare().bind().run() for click.js.
+// Fake D1: just enough of prepare().bind().run() for worker/index.js.
 const clicks = [];
 const LOG_DB = {
   prepare: () => ({ bind: (ts, sku, src) => ({ run: async () => clicks.push({ ts, sku, src }) }) }),
 };
-const clickFn = await import(pathToFileURL(resolve("functions/api/click.js")).href);
+const worker = (await import(pathToFileURL(resolve("worker/index.js")).href)).default;
+// The worker hands non-API requests back to the static files via env.ASSETS;
+// here that means "fall through to the file server below".
+const FALL_THROUGH = Symbol("assets");
+const ASSETS = { fetch: async () => FALL_THROUGH };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (url.pathname === "/api/click" && req.method === "POST") {
+  if (url.pathname.startsWith("/api/")) {
     const body = await new Promise((ok) => {
       let s = "";
       req.on("data", (c) => (s += c)).on("end", () => ok(s));
     });
-    const request = new Request(url, { method: "POST", body, headers: { "content-type": "application/json" } });
-    const response = await clickFn.onRequestPost({ request, env: { LOG_DB } });
-    res.writeHead(response.status).end();
-    return;
+    const request = new Request(url, {
+      method: req.method,
+      body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
+      headers: { "content-type": req.headers["content-type"] ?? "application/json" },
+    });
+    const response = await worker.fetch(request, { LOG_DB, ASSETS });
+    if (response !== FALL_THROUGH) {
+      res.writeHead(response.status).end();
+      return;
+    }
   }
   if (url.pathname === "/__clicks") {
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(clicks));

@@ -50,7 +50,7 @@ IMG_BASE_URL = (os.getenv("IMG_BASE_URL") or "").rstrip("/")
 # ---------------------------------------------------------------------------
 PRODUCTS_PER_PAGE = 48          # products on each category / machine page
 RELATED_LIMIT = 8               # "related parts" shown on a product page
-MAX_SITE_FILES = 19_000         # Cloudflare Pages free limit is 20,000 files
+MAX_SITE_FILES = 19_000         # Cloudflare free limit is 20,000 static files
 
 # Brand colours (60-30-10 rule), for reference. The website itself takes
 # its colours from the @theme block in src/styles/global.css; change both.

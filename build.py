@@ -385,7 +385,7 @@ def write_json(path: Path, data) -> None:
 
 
 def headers_file() -> str:
-    """Cloudflare Pages _headers: security headers, strict CSP and caching.
+    """Cloudflare _headers file (Workers static assets): security headers, strict CSP and caching.
 
     Astro is configured to emit every script and stylesheet as a file
     (no inline code), so 'self' is enough and no 'unsafe-inline' is needed.
