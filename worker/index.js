@@ -9,7 +9,10 @@
  *
  *   POST /api/click  counts WhatsApp clicks per part, so you can see which parts
  *                    customers ask about most. Stores only the SKU, the button
- *                    that was clicked and the time (no phone numbers, no IPs).
+ *                    that was clicked, the time and the site's host name (no
+ *                    phone numbers, no IPs). Live and preview builds share one
+ *                    database, so the host tells real customer clicks
+ *                    (galaxytraderco.com) apart from staging/preview tests.
  *
  * Click logging needs a D1 database bound as LOG_DB (see wrangler.jsonc and
  * README section 4). Until it is bound, the click is ignored and the visitor
@@ -27,9 +30,13 @@ export async function logClick(request, env) {
     if (!SKU_RE.test(sku) || !SRC_RE.test(src)) {
       return new Response(null, { status: 400 });
     }
+    // Which address the visitor used, e.g. "galaxytraderco.com" or
+    // "staging-galaxytrader.<account>.workers.dev". Taken from the request
+    // URL, so the browser can't put anything else here.
+    const host = new URL(request.url).hostname.toLowerCase();
     if (env.LOG_DB) {
-      await env.LOG_DB.prepare("INSERT INTO clicks (ts, sku, src) VALUES (?1, ?2, ?3)")
-        .bind(new Date().toISOString(), sku, src)
+      await env.LOG_DB.prepare("INSERT INTO clicks (ts, sku, src, host) VALUES (?1, ?2, ?3, ?4)")
+        .bind(new Date().toISOString(), sku, src, host)
         .run();
     }
   } catch {

@@ -48,7 +48,7 @@ function loadHeaders() {
 // Fake D1: just enough of prepare().bind().run() for worker/index.js.
 const clicks = [];
 const LOG_DB = {
-  prepare: () => ({ bind: (ts, sku, src) => ({ run: async () => clicks.push({ ts, sku, src }) }) }),
+  prepare: () => ({ bind: (ts, sku, src, host) => ({ run: async () => clicks.push({ ts, sku, src, host }) }) }),
 };
 const worker = (await import(pathToFileURL(resolve("worker/index.js")).href)).default;
 // The worker hands non-API requests back to the static files via env.ASSETS;

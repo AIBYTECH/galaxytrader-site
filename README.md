@@ -138,12 +138,13 @@ The site runs as a Cloudflare **Worker with static assets**: Cloudflare serves t
    - **Variables and secrets** (build variables): `WHATSAPP_NUMBER` = `923348118152`, `WHATSAPP_DISPLAY` = `+92 334 8118152`, and later `IMG_BASE_URL` = `https://img.galaxytraderco.com` (leave it out until R2 is ready: the photos are then built into the site).
 3. **Custom domain:** the Worker → **Settings → Domains & Routes → Add → Custom domain**: `galaxytraderco.com`, then again for `www.galaxytraderco.com`. (The domain must be on your Cloudflare account.)
 4. **R2 (photos):** Cloudflare dashboard → R2 → create bucket `galaxytrader-img`, then **Settings → Custom domains → `img.galaxytraderco.com`**. Create a second, private bucket `galaxytrader-originals` for photo backups. Create an **R2 API token** (Object Read & Write, these two buckets only) and put its keys in your `.env`. Then set `IMG_BASE_URL` (step 2).
-5. **Click log (optional, free):** the site works without it; clicks are simply not stored.
+5. **Click log (D1, free): already set up.** Database `galaxytrader-logs` (region APAC) is bound as `LOG_DB` in `wrangler.jsonc`, and its `clicks` table was created from `schema.sql`. To set it up again on another account:
    ```
+   npx wrangler login
    npx wrangler d1 create galaxytrader-logs
    npx wrangler d1 execute galaxytrader-logs --remote --file=schema.sql
    ```
-   Then in `wrangler.jsonc`, remove the `//` in front of the `d1_databases` block and replace `PLACEHOLDER-D1-DATABASE-ID` with the id the first command printed. Commit and push. (The binding is named `LOG_DB`. It lives in `wrangler.jsonc`, not in the dashboard, because each deploy uses the bindings in that file.)
+   then put the new `database_id` into `wrangler.jsonc`. The binding lives in `wrangler.jsonc`, not in the dashboard, because each deploy uses the bindings in that file. Without the binding the site still works; clicks just aren't stored.
 6. **Analytics (optional, free):** turn on **Web Analytics** for the domain.
 
 After that, every push builds and deploys automatically:
@@ -165,13 +166,20 @@ GitHub also runs `.github/workflows/check.yml` on every push: the same build, wi
 
 ## 5. Monthly click report
 
-In the Cloudflare dashboard → D1 → `galaxytrader-logs` → Console:
+Every WhatsApp click is stored with the part number, the button, the time and the **host** (the address the visitor used). Live and preview builds share one database, so the host is how you leave out your own tests on staging and preview addresses.
+
+In the Cloudflare dashboard → Storage & databases → D1 → `galaxytrader-logs` → **Console**:
 
 ```sql
+-- Top 20 parts by WhatsApp clicks in the last 30 days, live site only
 SELECT sku, COUNT(*) AS clicks FROM clicks
 WHERE sku <> '' AND ts >= datetime('now', '-30 days')
+  AND (host IN ('galaxytraderco.com', 'www.galaxytraderco.com')
+       OR host LIKE 'galaxytrader.%.workers.dev')
 GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 ```
+
+`galaxytrader.<your-subdomain>.workers.dev` is the live Worker's own address. Preview addresses look like `staging-galaxytrader.…` or `1a2b3c4d-galaxytrader.…`, so the `LIKE` line doesn't match them. To see where clicks come from: `SELECT host, COUNT(*) FROM clicks GROUP BY host;`
 
 ## Design rules (keep them when editing)
 
@@ -195,5 +203,5 @@ GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 - [ ] About-us text is in `src/pages/about.astro`; two details are still marked in dashed boxes: the year you started, and the delivery area
 - [ ] Real products and photos in place of the samples
 - [ ] Check PageSpeed Insights (mobile) on the staging preview URL after the first deploy
-- [ ] Click log: create the D1 database and fill in its id in `wrangler.jsonc` (section 4, step 5)
+- [x] Click log: D1 database `galaxytrader-logs` created and bound as `LOG_DB`
 - [ ] Phase 9 of the plan: AI parts assistant and order tracking (`build/catalog.jsonl` is already generated for it)

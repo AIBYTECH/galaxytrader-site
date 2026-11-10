@@ -200,9 +200,12 @@ test("WhatsApp link is pre-filled and the click is logged", async ({ page, reque
   // Don't actually leave for wa.me: block it, then check the beacon arrived.
   await page.route("https://wa.me/**", (r) => r.abort());
   await link.click();
+  // The row also records which site the click came from (the host name),
+  // so the monthly report can leave out staging and preview clicks.
+  type Click = { sku: string; src: string; host: string };
   await expect
-    .poll(async () => (await (await request.get("/__clicks")).json()).some((c: { sku: string }) => c.sku === "GT-10021"))
-    .toBe(true);
+    .poll(async () => ((await (await request.get("/__clicks")).json()) as Click[]).find((c) => c.sku === "GT-10021"))
+    .toMatchObject({ sku: "GT-10021", src: "product", host: "localhost" });
 });
 
 test("discontinued part asks for an alternative", async ({ page }) => {

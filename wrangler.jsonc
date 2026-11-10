@@ -26,22 +26,18 @@
   },
 
   // ---------------------------------------------------------------------
-  // Click log (optional). The site works without it: clicks are ignored.
-  // To switch it on:
-  //   1. npx wrangler d1 create galaxytrader-logs
-  //   2. npx wrangler d1 execute galaxytrader-logs --remote --file=schema.sql
-  //   3. Remove the "//" in front of the block below and replace
-  //      PLACEHOLDER-D1-DATABASE-ID with the id printed by step 1.
-  // It stays commented out until then, because a deploy with a made-up
-  // database id fails.
+  // Click log: D1 database "galaxytrader-logs" (region APAC), read by
+  // worker/index.js as env.LOG_DB. Table: schema.sql. Monthly report:
+  // README section 5. If this block is ever removed, the site still works
+  // and clicks are simply not stored.
   // ---------------------------------------------------------------------
-  // "d1_databases": [
-  //   {
-  //     "binding": "LOG_DB",
-  //     "database_name": "galaxytrader-logs",
-  //     "database_id": "PLACEHOLDER-D1-DATABASE-ID"
-  //   }
-  // ],
+  "d1_databases": [
+    {
+      "binding": "LOG_DB",
+      "database_name": "galaxytrader-logs",
+      "database_id": "1138138b-d8a8-4a58-bfc5-8290dc03d4bd"
+    }
+  ],
 
   "observability": { "enabled": true }
 }
