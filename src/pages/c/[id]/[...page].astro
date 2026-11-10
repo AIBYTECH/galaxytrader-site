@@ -1,15 +1,23 @@
 ---
 /**
- * Category pages: /c/<category_id>/ and /c/<category_id>/page/N/
- * 48 parts per page as static HTML (good for Google and for phones
- * without JavaScript); the filters search the whole category.
+ * Category pages.
+ *  - Main categories with subcategories (/c/parts-by-brand/): one page of
+ *    subcategory tiles with part counts.
+ *  - Subcategories and main categories without children: /c/<id>/ and
+ *    /c/<id>/page/N/, 48 parts per page as static HTML (good for Google and
+ *    for phones without JavaScript); the filters search the whole category.
  */
+import Base from "../../../layouts/Base.astro";
+import Breadcrumbs from "../../../components/Breadcrumbs.astro";
 import ListingPage from "../../../components/ListingPage.astro";
-import { categories, getCategory, getProduct, paginate, toCard, type Category } from "../../../lib/data";
+import { categories, getCategory, getProduct, paginate, site, toCard, type Category } from "../../../lib/data";
 import type { CardItem } from "../../../lib/types";
 
 export function getStaticPaths() {
   return categories.flatMap((c) => {
+    if (c.children.length) {
+      return [{ params: { id: c.id, page: undefined }, props: { c, items: [], pageNo: 1, nPages: 1 } }];
+    }
     const pages = paginate(c.skus.map((s) => toCard(getProduct(s))));
     return pages.map((items, i) => ({
       // page 1 -> /c/<id>/, page 2 -> /c/<id>/page/2/
@@ -25,18 +33,43 @@ if (c.parentId) {
   const parent = getCategory(c.parentId);
   crumbs.push([parent.name, parent.url]);
 }
-const chips = c.children.map(getCategory).map((ch) => ({ name: ch.name, url: ch.url, count: ch.skus.length }));
+const children = c.children.map(getCategory).filter((ch) => ch.count > 0);
 ---
-<ListingPage
-  title={c.name}
-  intro={c.intro}
-  crumbs={crumbs}
-  items={items}
-  total={c.skus.length}
-  pageNo={pageNo}
-  nPages={nPages}
-  base={c.url}
-  chips={chips}
-  filters={c.filters}
-  dataUrl={`/data/c/${c.id}.json`}
-/>
+{c.children.length ? (
+  <Base title={`${c.name} | ${site.name}`} description={`${c.intro} ${c.count} parts in ${children.length} groups.`}>
+    <div class="wrap">
+      <Breadcrumbs crumbs={crumbs} current={c.name} />
+      <header class="pb-2">
+        <h1>{c.name}</h1>
+        {c.intro && <p class="lead">{c.intro}</p>}
+        <p class="m-0 mb-4 text-sm font-semibold text-ink-2">{c.count.toLocaleString("en-US")} parts in {children.length} groups</p>
+      </header>
+      <ul class="m-0 mb-8 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] sm:gap-3">
+        {children.map((ch) => (
+          <li>
+            <a
+              href={ch.url}
+              class="spot flex h-full flex-col justify-between gap-2 border-t-4 border-t-ink p-3.5 no-underline hover:border-t-accent hover:text-ink sm:p-4"
+            >
+              <span class="font-head text-lg leading-tight font-extrabold uppercase sm:text-xl">{ch.name}</span>
+              <span class="text-sm font-semibold text-accent-text">{ch.count.toLocaleString("en-US")} parts</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </Base>
+) : (
+  <ListingPage
+    title={c.name}
+    intro={c.intro}
+    crumbs={crumbs}
+    items={items}
+    total={c.skus.length}
+    pageNo={pageNo}
+    nPages={nPages}
+    base={c.url}
+    filters={c.filters}
+    dataUrl={`/data/c/${c.id}.json`}
+  />
+)}

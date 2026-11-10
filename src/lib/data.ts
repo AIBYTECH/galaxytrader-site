@@ -28,6 +28,7 @@ export interface Product {
   inStock: boolean;
   status: "active" | "discontinued";
   thumb: string;
+  hasPhoto: boolean;
   image: string;
   related: string[];
 }
@@ -39,6 +40,9 @@ export interface Category {
   intro: string;
   url: string;
   children: string[];
+  /** number of parts, including those of subcategories */
+  count: number;
+  /** parts listed on this category's pages (empty for main categories with subcategories) */
   skus: string[];
   /** brand -> machine models, for the category filters */
   filters: Record<string, { id: string; model: string }[]>;
