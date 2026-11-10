@@ -47,7 +47,7 @@ interface PackedIndex {
 export function unpack(idx: PackedIndex) {
   return idx.d.map(([sku, name, cat, ms, aliases, flags = 0, moq]) => {
     const labels = ms.map((i) => idx.m[i][0]);
-    const slug = sku.toLowerCase();
+    const slug = sku.toLowerCase().replace(/[/.]/g, "-"); // same as sku_slug() in process_images.py
     return {
       // other numbers for the part (e.g. the KM number U-109) are matched like the SKU
       id: sku, sku, skuNorm: [sku, ...aliases.split(" ")].filter(Boolean).map(skuNorm).join(" "), name, aliases,

@@ -53,9 +53,21 @@ def file_hash(path: Path) -> str:
     return h.hexdigest()[:16]
 
 
+def sku_slug(sku: str) -> str:
+    """Part number -> the form used in URLs and image names:
+    'S70F-1/8' -> 's70f-1-8', 'H10-1.0MM' -> 'h10-1-0mm', '244122' -> '244122'."""
+    return sku.lower().replace("/", "-").replace(".", "-")
+
+
+def photo_stem(sku: str) -> str:
+    """File name (without extension) of a part's photo in photos/. A "/" can't
+    be in a file name, so it is written as "_": 'S70F-1/8' -> 'S70F-1_8'."""
+    return sku.replace("/", "_")
+
+
 def sku_from_filename(path: Path) -> str:
-    """'GT-10021.jpg' -> 'GT-10021' (upper-case, as in the workbook)."""
-    return path.stem.strip().upper()
+    """'244122.png' -> '244122'; 'S70F-1_8.png' -> 'S70F-1/8' (upper-case, as in the workbook)."""
+    return path.stem.strip().upper().replace("_", "/")
 
 
 def make_square(img: Image.Image, size: int) -> Image.Image:
@@ -81,7 +93,7 @@ def convert(path: Path) -> tuple[str, str]:
             if min(img.size) < MIN_SHORT_SIDE and img.width * img.height > 0:
                 warning = "small"
             for size in SIZES:
-                make_square(img, size).save(OUT_DIR / f"{sku.lower()}-{size}.webp", "WEBP", quality=80, method=4)
+                make_square(img, size).save(OUT_DIR / f"{sku_slug(sku)}-{size}.webp", "WEBP", quality=80, method=4)
     except Exception as exc:  # a broken file shouldn't stop the whole batch
         return sku, f"{path.name}: could not read the image ({exc})"
     return sku, warning
@@ -133,7 +145,7 @@ def main() -> None:
         sku = sku_from_filename(path)
         digest = file_hash(path)
         hashes[sku] = (digest, path)
-        outputs = [OUT_DIR / f"{sku.lower()}-{s}.webp" for s in SIZES]
+        outputs = [OUT_DIR / f"{sku_slug(sku)}-{s}.webp" for s in SIZES]
         unchanged = manifest.get(sku, {}).get("hash") == digest and all(o.exists() for o in outputs)
         if not unchanged or args.force:
             todo.append(path)
@@ -162,7 +174,7 @@ def main() -> None:
 
         def upload(sku: str) -> str:
             for size in SIZES:
-                out = OUT_DIR / f"{sku.lower()}-{size}.webp"
+                out = OUT_DIR / f"{sku_slug(sku)}-{size}.webp"
                 client.upload_file(str(out), bucket, f"p/{out.name}",
                                    ExtraArgs={"ContentType": "image/webp",
                                               "CacheControl": "public, max-age=31536000, immutable"})

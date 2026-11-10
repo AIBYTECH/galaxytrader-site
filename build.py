@@ -34,13 +34,17 @@ from urllib.parse import urlparse
 from openpyxl import load_workbook
 
 import config
+from process_images import sku_slug
 
 ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data" / "products.xlsx"
 MANIFEST = ROOT / "data" / "image_manifest.json"
 BUILD_DIR = ROOT / "build"
 
-SKU_RE = re.compile(r"^[A-Z0-9-]{3,20}$")
+# Part numbers as printed in the catalogue: capitals, digits, "-", "." and "/"
+# (e.g. 244122, B1109-512-AO1, S70F-1/8, 91-058108-04X6.4, H10-1.0MM), 3-20 characters.
+# URLs and image names use sku_slug(): "/" and "." become "-".
+SKU_RE = re.compile(r"^[A-Z0-9][A-Z0-9./-]{2,19}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,40}$")
 STATUSES = {"active", "discontinued", "draft"}
 
@@ -97,7 +101,7 @@ class Product:
 
     @property
     def slug(self) -> str:
-        return self.sku.lower()
+        return sku_slug(self.sku)
 
     @property
     def url(self) -> str:
@@ -223,6 +227,7 @@ def load_and_validate(report: Report):
     # --- products ----------------------------------------------------------
     products: list[Product] = []
     seen: set[str] = set()
+    seen_slugs: dict[str, str] = {}
     for r in read_sheet(wb, "products"):
         row = r["_row"]
         status = (r.get("status") or "active").lower()
@@ -236,8 +241,13 @@ def load_and_validate(report: Report):
         ok = True
         if not SKU_RE.match(sku):
             report.error("products", row, "sku", f"'{sku}' is not a valid SKU",
-                         "3-20 characters: capital letters, numbers and dashes, e.g. GT-10021")
+                         "3-20 characters: capital letters, numbers, - . and /, e.g. 244122 or S70F-1/8")
             continue
+        if sku_slug(sku) in seen_slugs:
+            report.error("products", row, "sku", f"{sku} has the same web address as {seen_slugs[sku_slug(sku)]}",
+                         "Two part numbers that differ only in - . / can't both be on the site")
+            continue
+        seen_slugs[sku_slug(sku)] = sku
         if sku in seen:
             report.error("products", row, "sku", f"{sku} appears twice", "Each SKU must be unique")
             continue
@@ -349,19 +359,19 @@ def copy_local_images(products: list, img_dir: Path) -> None:
     Parts without either show the shared "Photo coming soon" picture.
     """
     from PIL import Image                      # imported here: only needed for local images
-    from process_images import EXTENSIONS, PHOTO_DIR, SIZES, make_square
+    from process_images import EXTENSIONS, PHOTO_DIR, SIZES, make_square, photo_stem
 
     img_dir.mkdir(parents=True)
     for p in products:
         if not p.has_photo:
             continue
-        names = [f"{p.sku.lower()}-{s}.webp" for s in SIZES]
+        names = [f"{p.slug}-{s}.webp" for s in SIZES]
         processed = [BUILD_DIR / "img" / n for n in names]
         if all(f.exists() for f in processed):
             for f in processed:
                 shutil.copy2(f, img_dir / f.name)
             continue
-        original = next((f for ext in EXTENSIONS for f in [PHOTO_DIR / f"{p.sku}{ext}"] if f.exists()), None)
+        original = next((f for ext in EXTENSIONS for f in [PHOTO_DIR / f"{photo_stem(p.sku)}{ext}"] if f.exists()), None)
         if original is None:
             p.has_photo = False                # listed in the manifest, but not on this PC
             continue
@@ -378,7 +388,7 @@ def img_url(p: "Product", size: int) -> str:
     the shared placeholder when the part has no photo."""
     if not p.has_photo:
         return PLACEHOLDER
-    name = f"{p.sku.lower()}-{size}.webp"
+    name = f"{p.slug}-{size}.webp"
     return f"{config.IMG_BASE_URL}/p/{name}" if config.IMG_BASE_URL else f"/img/p/{name}"
 
 
