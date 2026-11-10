@@ -31,7 +31,8 @@ data/products.xlsx ──► python build.py --emit-json ──► src/data/*.js
 | `build.py` | Validates the workbook; with `--emit-json` writes the data for the website |
 | `process_images.py` | Converts photos to WebP (300 px and 900 px) and uploads them to R2 |
 | `make_qr.py` | One QR code per part, plus printable A4 label sheets |
-| `make_sample_data.py` | Creates a sample workbook and placeholder photos to try the site |
+| `catalogue_map/` | How the Yao Han 2017 catalogue maps to categories and machines (page -> subcategory -> machine) |
+| `make_sample_data.py` | Old sample workbook (28 parts), only for trying the site; not used by the build |
 | `config.py` | Business details (WhatsApp, email, address, hours) and build settings |
 | `src/pages/` | One Astro file per page type (home, product, category, machine, search, list...) |
 | `src/layouts/Base.astro` | Header, menu, footer and `<head>` shared by every page |
@@ -63,13 +64,15 @@ python -m venv .venv
 pip install -r requirements.txt
 npm ci
 Copy-Item .env.example .env       # then edit .env: WhatsApp number etc.
-python make_sample_data.py        # only if you want the sample data
 
 # every time you change data or code
-python process_images.py          # new photos -> WebP
+python process_images.py          # new photos -> WebP (all CPU cores; the first run takes a while)
+$env:IMG_BASE_URL="http://localhost:4321/r2"; $env:IMG_PREVIEW="1"
 npm run build                     # check the workbook, write the JSON, build the site into dist/
 npm run preview                   # open http://localhost:4321
 ```
+
+The full catalogue has more than 1,000 parts, so its photos must come from R2 and the build stops when `IMG_BASE_URL` is empty. The two variables above are for your PC only: `npm run preview` then serves `build/img/` at `/r2/` like a local R2, and photos are never copied into `dist/`.
 
 If PowerShell refuses to run `Activate.ps1`, run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
@@ -80,9 +83,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 npm ci
 cp .env.example .env
-python make_sample_data.py
 python process_images.py
-npm run build                     # runs python build.py --emit-json first
+IMG_BASE_URL=http://localhost:4321/r2 IMG_PREVIEW=1 npm run build   # runs python build.py --emit-json first
 npm run preview                   # http://localhost:4321
 ```
 
@@ -100,7 +102,7 @@ npm run test:e2e                  # every feature, on a phone (390 px) and a des
 ## 2. Adding or changing products
 
 1. Fill rows in `data/products.xlsx` (the **how to fill** sheet explains each column).
-2. Put each photo in `photos/` named by SKU, e.g. `GT-10021.jpg` (800 px or larger on the short side, plain background).
+2. Put each photo in `photos/` named by SKU, e.g. `244122.jpg` (800 px or larger on the short side, plain background). A part without a photo is fine: it shows "Photo coming soon" until you add one.
 3. Run:
    ```
    python process_images.py --upload    # converts new photos and uploads them to R2
@@ -109,11 +111,27 @@ npm run test:e2e                  # every feature, on a phone (390 px) and a des
 4. If `build.py` reports **errors**, open `build/validation_report.csv`, fix those rows and run it again. **Warnings** (like a missing description) don't block the build.
 5. Commit `data/products.xlsx` and `data/image_manifest.json`, push to **staging** to check the preview, then merge into **main** to go live.
 
-Rules the build checks: unique SKUs in the format `GT-10021`, categories and machines that exist on their sheets, specs written as `Key: Value; Key: Value`, whole-number MOQ, Yes/No stock, and a processed photo for every part. Rows with status `draft` are skipped; `discontinued` parts stay online with an "Ask for an alternative" button.
+Rules the build checks: unique SKUs (3-20 capital letters, digits and dashes), categories and machines that exist on their sheets, specs written as `Key: Value; Key: Value`, whole-number MOQ and Yes/No stock. A missing photo is only a warning. Rows with status `draft` are skipped; `discontinued` parts stay online with an "Ask for an alternative" button.
 
 Local names and other spellings go in the **aliases** columns (e.g. `kanda` for a rotary hook): search finds them. Search also ignores dashes, spaces and capitals in part numbers and reads a letter O as zero, so `gt10115`, `GT-1O115` and `ddl8700` all work.
 
 **URLs never change.** Product pages live at `/p/<sku>/` (e.g. `/p/gt-10021/`), so renaming a part never breaks old links or printed QR codes. Categories: `/c/<category_id>/` (48 parts per page, then `/page/2/`...). Machines: `/m/<machine_id>/`.
+
+### Importing the Yao Han catalogue
+
+The workbook is made from `2017 MASTER CATALOG.pdf` (Yao Han Industries, photos used with their permission) by the **catalogue-bin-labeler** tool. `catalogue_map/` tells it which category and machine each PDF page belongs to.
+
+```
+python catalogue_bin_labeler.py "2017 MASTER CATALOG.pdf" --section all --map ..\galaxytrader-site\catalogue_map --out D:\yaohan_output --export-website ..\galaxytrader-site
+python process_images.py --upload
+```
+
+- It works **section by section** (`--section juki`, `--section all`); each finished section is saved, so after a crash the same command carries on. `--list-sections` shows what is done, `--redo` runs sections again.
+- Output folder: `parts.csv` (every catalogue row), `section_report.csv` (parts, machines, photos, REVIEW and held rows per section), `held_for_supplier.csv`, `sku_check.csv` and `website_export_report.csv`.
+- **Held parts:** a part number printed for two clearly different parts (e.g. `241092` SYNCHRO PULLEY p.4 vs CREPE TAPE HANGER STUD p.8) is not exported; ask Yao Han and settle it in `corrections.csv`.
+- **corrections.csv** (in the output folder): `catalogue_page,part_number,field,value,comment` - e.g. `,241092,part_name,SYNCHRO PULLEY,` - applied on every export, so a fresh extraction never loses your fixes. Re-export without extracting again: `--combine --export-website ..\galaxytrader-site`.
+- Rows still marked REVIEW in `parts.csv` are exported as `draft` (not on the site) until checked.
+- The export writes a **fresh** `data/products.xlsx` (products, machines, categories) and `photos/<SKU>.png`.
 
 ## 3. QR codes for packaging and invoices
 
@@ -135,9 +153,9 @@ The site runs as a Cloudflare **Worker with static assets**: Cloudflare serves t
    - Deploy command: `npx wrangler deploy`
    - Root directory: `/`, **production branch: `main`**
    - Turn on **Builds for non-production branches**; their deploy command is `npx wrangler versions upload`.
-   - **Variables and secrets** (build variables): `WHATSAPP_NUMBER` = `923348118152`, `WHATSAPP_DISPLAY` = `+92 334 8118152`, and later `IMG_BASE_URL` = `https://img.galaxytraderco.com` (leave it out until R2 is ready: the photos are then built into the site).
+   - **Variables and secrets** (build variables): `WHATSAPP_NUMBER` = `923348118152`, `WHATSAPP_DISPLAY` = `+92 334 8118152`, and `IMG_BASE_URL` = `https://img.galaxytraderco.com`. With the full catalogue the build stops without `IMG_BASE_URL`.
 3. **Custom domain:** the Worker → **Settings → Domains & Routes → Add → Custom domain**: `galaxytraderco.com`, then again for `www.galaxytraderco.com`. (The domain must be on your Cloudflare account.)
-4. **R2 (photos):** Cloudflare dashboard → R2 → create bucket `galaxytrader-img`, then **Settings → Custom domains → `img.galaxytraderco.com`**. Create a second, private bucket `galaxytrader-originals` for photo backups. Create an **R2 API token** (Object Read & Write, these two buckets only) and put its keys in your `.env`. Then set `IMG_BASE_URL` (step 2).
+4. **R2 (photos):** Cloudflare dashboard → R2 → **enable R2** (free tier: 10 GB; Cloudflare asks for a payment method), create bucket `galaxytrader-img`, then **Settings → Custom domains → `img.galaxytraderco.com`**. Create a second, private bucket `galaxytrader-originals` for photo backups. Create an **R2 API token** (Object Read & Write, these two buckets only) and put its keys in your `.env`. Then set `IMG_BASE_URL` (step 2).
 5. **Click log (D1, free): already set up.** Database `galaxytrader-logs` (region APAC) is bound as `LOG_DB` in `wrangler.jsonc`, and its `clicks` table was created from `schema.sql`. To set it up again on another account:
    ```
    npx wrangler login
@@ -160,7 +178,7 @@ GitHub also runs `.github/workflows/check.yml` on every push: the same build, wi
 
 **Check a deploy before pushing** (optional): `npm run build`, then `npx wrangler deploy --dry-run` shows what would be uploaded.
 
-**Photos without R2:** when `IMG_BASE_URL` is empty, the build puts the photos into the site itself (from `build/img/`, else from `photos/`, else the drawn sample placeholders). A fresh clone therefore shows the sample photos with no extra steps.
+**Photos without R2:** only for small catalogues (1,000 parts or fewer). When `IMG_BASE_URL` is empty, the build puts the photos into the site itself (from `build/img/`, else from `photos/`). On the live site a part counts as having a photo only after `process_images.py --upload` has put it on R2 (recorded in `data/image_manifest.json`); until then it shows "Photo coming soon".
 
 **Never commit `.env`.** Secrets live only in `.env` on your PC and in Cloudflare's build variables.
 
@@ -192,16 +210,19 @@ GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 
 ## Limits to keep in mind
 
-- Cloudflare free plan: **20,000 static files** per Worker. With photos on R2, 3,500 products need about 4,000 files; the build stops at 19,000.
-- R2 free tier: 10 GB storage. 3,500 parts × 2 WebP sizes is about 0.5 GB.
-- JavaScript budget (gzipped): product, category and machine pages 60 KB, home 120 KB. Currently about 57 KB; the search library (5.5 KB) loads only when someone searches.
+- Cloudflare free plan: **20,000 static files** per Worker. The full catalogue (about 14,000 live parts) needs about 15,200 files with photos on R2; `build.py` estimates the count before building and stops above 19,000 (options: fewer listing pages, or Workers Paid at $5/month for 100,000 files).
+- R2 free tier: 10 GB storage. About 13,800 photos × 2 WebP sizes is well under 1 GB.
+- JavaScript budget (gzipped): product, category and machine pages 60 KB, home 120 KB. Currently about 57 KB; the search library (5.5 KB) and the search index (about 120 KB gzipped for 14,000 parts) load only when someone searches.
 
 ## Still to do before launch
 
 - [x] Real WhatsApp number in `.env` (`923348118152`); also add `WHATSAPP_NUMBER` and `WHATSAPP_DISPLAY` as build variables of the Worker (section 4)
 - [ ] Final logo: replace `templates/_logo.svg` (the GT mark) and `public/img/favicon.svg`
 - [ ] About-us text is in `src/pages/about.astro`; two details are still marked in dashed boxes: the year you started, and the delivery area
-- [ ] Real products and photos in place of the samples
+- [x] Real products: the Yao Han 2017 catalogue (branch `full-catalogue`)
+- [ ] Enable R2, create the bucket + API token, run `python process_images.py --upload`, set `IMG_BASE_URL` in the Worker's build variables
+- [ ] Decide the SKU rule for the 161 catalogue numbers with `.`, `/` or `mm` (listed in the tool's `sku_check.csv`)
+- [ ] Check `held_for_supplier.csv` with Yao Han and settle the clashes in `corrections.csv`
 - [ ] Check PageSpeed Insights (mobile) on the staging preview URL after the first deploy
 - [x] Click log: D1 database `galaxytrader-logs` created and bound as `LOG_DB`
 - [ ] Phase 9 of the plan: AI parts assistant and order tracking (`build/catalog.jsonl` is already generated for it)
