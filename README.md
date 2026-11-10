@@ -177,9 +177,9 @@ GROUP BY sku ORDER BY clicks DESC LIMIT 20;
 
 ## Still to do before launch
 
-- [ ] Real WhatsApp number in `.env` and in the GitHub variables (`WHATSAPP_NUMBER`, `WHATSAPP_DISPLAY`) — placeholder `920000000000` now
+- [x] Real WhatsApp number in `.env` (`923348118152`); also add `WHATSAPP_NUMBER` and `WHATSAPP_DISPLAY` as GitHub repository variables
 - [ ] Final logo: replace `templates/_logo.svg` (the GT mark) and `public/img/favicon.svg`
-- [ ] About-us text in `src/pages/about.astro` (marked **PLACEHOLDER**)
+- [ ] About-us text is in `src/pages/about.astro`; two details are still marked in dashed boxes: the year you started, and the delivery area
 - [ ] Real products and photos in place of the samples
 - [ ] Check PageSpeed Insights (mobile) on the staging URL after the first deploy
 - [ ] Phase 9 of the plan: AI parts assistant and order tracking (`build/catalog.jsonl` is already generated for it)

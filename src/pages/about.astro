@@ -3,18 +3,25 @@ import Base from "../layouts/Base.astro";
 import { site } from "../lib/data";
 ---
 <Base title={`About us | ${site.name}`}>
-  <div class="wrap section max-w-[820px] text-[17px] text-[#374151]">
+  <div class="wrap section max-w-[820px] text-[17px] text-[#374151] [&>p]:mb-4">
     <h1 class="text-ink">About {site.name}</h1>
-    <p class="lead">{site.longTagline}</p>
-    <!-- PLACEHOLDER: replace with the real About-us text (2-3 short paragraphs). -->
-    <p class="rounded-lg border-2 border-dashed border-accent-text bg-white p-4">
-      [PLACEHOLDER – About-us text: how long GalaxyTrader has been in business, which brands and machines you cover,
-      and who your customers are. Two or three short paragraphs are enough.]
-    </p>
-    <h2 class="mt-8 font-head text-3xl font-extrabold text-ink uppercase">How ordering works</h2>
     <p>
-      This website is a catalogue. Find your parts, add them to your reorder list, and send the list on WhatsApp or by
-      email. We reply with availability, rates and delivery time.
+      GalaxyTrader supplies industrial sewing machine spare parts, along with textile, electronic and hardware parts,
+      to garment factories, mechanics and repair shops across Pakistan. From our shop in Nazimabad, Karachi, we stock
+      parts for the machines our customers use every day, including Juki, Brother, Jack, Siruba and Pegasus.
+    </p>
+    <p>
+      <!-- PLACEHOLDER: fill in the year, then remove the dashed box. -->
+      <span class="rounded border-2 border-dashed border-accent-text px-1">[We have served the trade since YEAR.]</span>{" "}
+      Our customers come back because we help them find the exact part quickly. Send us a part number, a machine model
+      or simply a photo of the old part, and we’ll match it and confirm availability.
+    </p>
+    <p>
+      This website is our parts catalogue. Search for what you need, add it to your{" "}
+      <a href="/list/">reorder list</a> and send the list to us on WhatsApp. We reply with rates and delivery time, and
+      deliver{" "}
+      <!-- PLACEHOLDER: confirm the delivery area, then remove the dashed box. -->
+      <span class="rounded border-2 border-dashed border-accent-text px-1">[in Karachi and across Pakistan]</span>.
     </p>
   </div>
 </Base>

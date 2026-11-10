@@ -25,9 +25,9 @@ TAGLINE = "Industrial sewing machine spare parts"
 LONG_TAGLINE = "Textile, electronic and hardware spare parts for factories and mechanics across Pakistan."
 
 # WhatsApp number in international format, digits only, no "+" or spaces.
-# Example: 923001234567  (TODO: replace with the real business WhatsApp number)
-WHATSAPP_NUMBER = os.getenv("WHATSAPP_NUMBER", "920000000000")
-WHATSAPP_DISPLAY = os.getenv("WHATSAPP_DISPLAY", "+92 300 0000000")
+# Example: 923001234567. The real values live in .env (and GitHub variables).
+WHATSAPP_NUMBER = os.getenv("WHATSAPP_NUMBER", "923348118152")
+WHATSAPP_DISPLAY = os.getenv("WHATSAPP_DISPLAY", "+92 334 8118152")
 
 EMAIL = "info@galaxytraderco.com"
 ADDRESS = "Shop # 8, Euro Grand Park, Plot # 1K/6, Nazimabad No. 1, Karachi 74600"
