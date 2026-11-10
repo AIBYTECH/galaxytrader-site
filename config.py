@@ -26,8 +26,8 @@ LONG_TAGLINE = "Textile, electronic and hardware spare parts for factories and m
 
 # WhatsApp number in international format, digits only, no "+" or spaces.
 # Example: 923001234567. The real values live in .env (and GitHub variables).
-WHATSAPP_NUMBER = os.getenv("WHATSAPP_NUMBER", "923348118152")
-WHATSAPP_DISPLAY = os.getenv("WHATSAPP_DISPLAY", "+92 334 8118152")
+WHATSAPP_NUMBER = os.getenv("WHATSAPP_NUMBER") or "923348118152"
+WHATSAPP_DISPLAY = os.getenv("WHATSAPP_DISPLAY") or "+92 334 8118152"
 
 EMAIL = "info@galaxytraderco.com"
 ADDRESS = "Shop # 8, Euro Grand Park, Plot # 1K/6, Nazimabad No. 1, Karachi 74600"
@@ -38,12 +38,12 @@ HOURS = "Mon–Sat, 10am–7pm"
 # ---------------------------------------------------------------------------
 # Public address of the live site, used for canonical URLs, the sitemap,
 # QR codes and the link inside WhatsApp messages.
-BASE_URL = os.getenv("BASE_URL", "https://galaxytraderco.com").rstrip("/")
+BASE_URL = (os.getenv("BASE_URL") or "https://galaxytraderco.com").rstrip("/")
 
 # Where product photos are served from.
 #   - Live site: Cloudflare R2 on its own sub-domain, e.g. https://img.galaxytraderco.com
 #   - Your PC / preview: leave empty and the build copies photos into dist/img/
-IMG_BASE_URL = os.getenv("IMG_BASE_URL", "").rstrip("/")
+IMG_BASE_URL = (os.getenv("IMG_BASE_URL") or "").rstrip("/")
 
 # ---------------------------------------------------------------------------
 # Build settings

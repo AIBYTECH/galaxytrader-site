@@ -18,6 +18,7 @@ data/products.xlsx ──► python build.py --emit-json ──► src/data/*.js
 - **Astro** turns the JSON into plain HTML pages. Everything readable is in the HTML, so pages work without JavaScript and Google can read them.
 - **Islands**: only the interactive parts run JavaScript (search box, machine picker, filters, reorder list, recently viewed, add-to-list buttons, toast). They are written as React components and run on **Preact's React-compatible layer** (10 KB instead of React's 45 KB), so product and category pages stay under 60 KB of JavaScript.
 - **Tailwind CSS** for styling, **Motion** for small animations, **MiniSearch** for search.
+- `npm run build` does both steps: npm runs the `prebuild` script (`python build.py --emit-json`) first, then Astro. So the same one command works on your PC, in GitHub Actions and in Cloudflare's own build.
 - `npm run build` also checks: the JavaScript budget per page, the file count (< 19,000), and adds hashes for Astro's tiny inline loader to the strict Content-Security-Policy in `dist/_headers`.
 
 ## What's in the project
@@ -65,8 +66,7 @@ python make_sample_data.py        # only if you want the sample data
 
 # every time you change data or code
 python process_images.py          # new photos -> WebP
-python build.py --emit-json       # check the workbook, write the JSON
-npm run build                     # build the site into dist/
+npm run build                     # check the workbook, write the JSON, build the site into dist/
 npm run preview                   # open http://localhost:4321
 ```
 
@@ -81,8 +81,7 @@ npm ci
 cp .env.example .env
 python make_sample_data.py
 python process_images.py
-python build.py --emit-json
-npm run build
+npm run build                     # runs python build.py --emit-json first
 npm run preview                   # http://localhost:4321
 ```
 
@@ -104,8 +103,7 @@ npm run test:e2e                  # every feature, on a phone (390 px) and a des
 3. Run:
    ```
    python process_images.py --upload    # converts new photos and uploads them to R2
-   python build.py --emit-json          # checks the workbook
-   npm run build                        # optional: check the site builds
+   npm run build                        # checks the workbook, then builds the site
    ```
 4. If `build.py` reports **errors**, open `build/validation_report.csv`, fix those rows and run it again. **Warnings** (like a missing description) don't block the build.
 5. Commit `data/products.xlsx` and `data/image_manifest.json`, push to **staging** to check the preview, then merge into **main** to go live.
@@ -146,7 +144,11 @@ After that, every push builds and deploys automatically (`.github/workflows/depl
 | `staging` | preview at `staging.galaxytrader.pages.dev` |
 | `main` | live site `galaxytraderco.com` |
 
-The workflow runs `python build.py --emit-json`, then `npm ci && npm run build`, then uploads `dist/` and `functions/` with wrangler. If validation, the JavaScript budget or the file count fails, nothing is deployed.
+The workflow runs `npm ci && npm run build` (which runs `python build.py --emit-json` first), then uploads `dist/` and `functions/` with wrangler. If validation, the JavaScript budget or the file count fails, nothing is deployed.
+
+**Photos without R2:** when `IMG_BASE_URL` is empty, the build puts the photos into the site itself (from `build/img/`, else from `photos/`, else the drawn sample placeholders). A fresh clone therefore shows the sample photos with no extra steps.
+
+**If you connect the repo in Cloudflare's dashboard instead** (Git integration rather than this workflow): build command `npm run build`, output directory `dist`. Cloudflare installs `requirements.txt` automatically, so the Python step runs there too.
 
 **Never commit `.env`.** Secrets live only in `.env` on your PC and in GitHub's secrets.
 

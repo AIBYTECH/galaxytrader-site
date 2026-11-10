@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "python build.py --emit-json",
     "build": "astro build && node scripts/postbuild.mjs",
     "preview": "node scripts/serve.mjs",
     "check": "astro check",

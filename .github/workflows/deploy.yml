@@ -2,9 +2,10 @@
 #   push to "main"    -> live site (galaxytraderco.com)
 #   push to "staging" -> preview URL (staging.galaxytrader.pages.dev)
 #
-# Steps: Python validates the workbook and writes JSON -> Astro builds the
-# static pages into dist/ -> wrangler uploads dist/ plus functions/ (the
-# /api/click Pages Function) to the Pages project "galaxytrader".
+# Steps: npm run build (its "prebuild" step runs Python, which validates the
+# workbook and writes JSON; then Astro builds the static pages into dist/)
+# -> wrangler uploads dist/ plus functions/ (the /api/click Pages Function)
+# to the Pages project "galaxytrader".
 #
 # Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID,
 # and repository variables WHATSAPP_NUMBER, WHATSAPP_DISPLAY, IMG_BASE_URL.
@@ -46,8 +47,13 @@ jobs:
       - name: Install Python packages
         run: pip install -r requirements.txt
 
-      - name: Validate workbook and write JSON
-        run: python build.py --emit-json
+      # "npm run build" first runs the "prebuild" script, which is
+      # "python build.py --emit-json": it validates the workbook and writes
+      # the JSON. Validation errors stop the build here.
+      - name: Validate the workbook and build the site
+        run: |
+          npm ci
+          npm run build
 
       - name: Keep the validation report
         if: always()
@@ -56,11 +62,6 @@ jobs:
           name: validation-report
           path: build/validation_report.csv
           if-no-files-found: ignore
-
-      - name: Build the site (Astro + budget and CSP checks)
-        run: |
-          npm ci
-          npm run build
 
       # functions/ sits next to dist/ in the project root, so wrangler
       # deploys the /api/click function together with the pages.

@@ -265,20 +265,31 @@ def draw_part(shape: str, draw: ImageDraw.ImageDraw, s: int) -> None:
         draw.line([(c - 120, c + 170), (c + 360, c + 170)], fill=ink, width=w * 2)
 
 
-def build_photos() -> None:
-    """Create a 1000x1000 JPG placeholder for each sample product."""
-    PHOTO_DIR.mkdir(exist_ok=True)
+def sample_photo(sku: str) -> Image.Image | None:
+    """Draw the 1000x1000 placeholder photo for a sample SKU (None if it isn't one).
+
+    build.py also uses this, so a fresh clone (with no photos/ folder) still
+    shows the sample photos on a local or preview build.
+    """
+    shape = next((p[11] for p in PRODUCTS if p[0] == sku), None)
+    if shape is None:
+        return None
     try:
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 44)
     except OSError:
         font = ImageFont.load_default()
+    img = Image.new("RGB", (1000, 1000), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    draw_part(shape, d, 1000)
+    d.text((40, 930), f"{sku}  (sample photo)", fill=(120, 120, 120), font=font)
+    return img
+
+
+def build_photos() -> None:
+    """Create a 1000x1000 JPG placeholder for each sample product."""
+    PHOTO_DIR.mkdir(exist_ok=True)
     for p in PRODUCTS:
-        sku, shape = p[0], p[11]
-        img = Image.new("RGB", (1000, 1000), (255, 255, 255))
-        d = ImageDraw.Draw(img)
-        draw_part(shape, d, 1000)
-        d.text((40, 930), f"{sku}  (sample photo)", fill=(120, 120, 120), font=font)
-        img.save(PHOTO_DIR / f"{sku}.jpg", quality=88)
+        sample_photo(p[0]).save(PHOTO_DIR / f"{p[0]}.jpg", quality=88)
 
 
 def main() -> None:

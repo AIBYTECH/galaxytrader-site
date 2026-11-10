@@ -331,6 +331,42 @@ SRC_DATA = ROOT / "src" / "data"      # read by Astro at build time (not served)
 PUBLIC = ROOT / "public"              # copied as-is into dist/ by Astro
 
 
+def copy_local_images(products: list, img_dir: Path) -> None:
+    """Put a 300 px and a 900 px WebP for every product into public/img/p/.
+
+    Where each photo comes from, first match wins:
+      1. build/img/<sku>-<size>.webp, made by process_images.py
+      2. photos/<SKU>.jpg (or .png/.webp), converted here on the fly
+      3. the drawn placeholder for a sample SKU (make_sample_data.py)
+    So a fresh clone, GitHub Actions and Cloudflare's own build all show the
+    sample photos even though photos/ and build/ are not in Git.
+    """
+    from PIL import Image                      # imported here: only needed for local images
+    from process_images import EXTENSIONS, PHOTO_DIR, SIZES, make_square
+    from make_sample_data import sample_photo
+
+    img_dir.mkdir(parents=True)
+    missing = []
+    for p in products:
+        names = [f"{p.sku.lower()}-{s}.webp" for s in SIZES]
+        processed = [BUILD_DIR / "img" / n for n in names]
+        if all(f.exists() for f in processed):
+            for f in processed:
+                shutil.copy2(f, img_dir / f.name)
+            continue
+        original = next((f for ext in EXTENSIONS for f in [PHOTO_DIR / f"{p.sku}{ext}"] if f.exists()), None)
+        img = Image.open(original) if original else sample_photo(p.sku)
+        if img is None:
+            missing.append(p.sku)
+            continue
+        with img:
+            for size, name in zip(SIZES, names):
+                make_square(img, size).save(img_dir / name, "WEBP", quality=80, method=6)
+    if missing:
+        print(f"Note: no photo found for {len(missing)} part(s) ({', '.join(missing[:5])}); "
+              "run process_images.py or set IMG_BASE_URL.")
+
+
 def img_url(sku: str, size: int) -> str:
     """URL of a product photo: R2 on the live site, /img/p/ on your PC."""
     name = f"{sku.lower()}-{size}.webp"
@@ -475,14 +511,13 @@ def emit_json() -> None:
     (PUBLIC / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /list/\n\nSitemap: {config.BASE_URL}/sitemap.xml\n")
     (PUBLIC / "_headers").write_text(headers_file())
 
-    # Local preview: copy processed photos in. Live site: they're served from R2.
+    # Live site: photos are served from R2. Without IMG_BASE_URL (your PC, a
+    # fresh clone, a preview build) they go into public/img/p/ instead.
     img_dir = PUBLIC / "img" / "p"
     if img_dir.exists():
         shutil.rmtree(img_dir)
-    if not config.IMG_BASE_URL and (BUILD_DIR / "img").exists():
-        img_dir.mkdir(parents=True)
-        for f in (BUILD_DIR / "img").glob("*.webp"):
-            shutil.copy2(f, img_dir / f.name)
+    if not config.IMG_BASE_URL:
+        copy_local_images(products, img_dir)
 
     # -- data for the future AI assistant (kept out of the public site) -----
     with (BUILD_DIR / "catalog.jsonl").open("w", encoding="utf-8") as f:
@@ -495,7 +530,7 @@ def emit_json() -> None:
             }, ensure_ascii=False) + "\n")
 
     print(f"Wrote JSON for {len(products)} products, {len(categories)} categories, "
-          f"{len(machines)} machines -> src/data/ and public/. Next: npm run build")
+          f"{len(machines)} machines -> src/data/ and public/.")
 
 
 if __name__ == "__main__":
