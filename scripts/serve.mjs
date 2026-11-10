@@ -20,6 +20,7 @@ import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 
 const DIST = resolve("dist");
+const R2_DIR = resolve("build", "img");
 const PORT = Number(process.env.PORT || 4321);
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
@@ -77,6 +78,18 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/__clicks") {
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(clicks));
+    return;
+  }
+  // Local stand-in for the R2 photo bucket: /r2/p/<sku>-300.webp -> build/img/.
+  // Preview an R2 build with IMG_BASE_URL=http://localhost:4321/r2 IMG_PREVIEW=1.
+  // (Not part of dist/, so it never counts towards the file limit.)
+  if (url.pathname.startsWith("/r2/p/")) {
+    const file = join(R2_DIR, url.pathname.slice("/r2/p/".length).replace(/[^a-z0-9._-]/gi, ""));
+    if (existsSync(file)) {
+      res.writeHead(200, { "content-type": "image/webp", "cache-control": "public, max-age=3600" }).end(readFileSync(file));
+    } else {
+      res.writeHead(404).end();
+    }
     return;
   }
 
